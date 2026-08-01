@@ -20,11 +20,8 @@
 <body>
 <div id="wrap"><canvas id="game" width="240" height="160"></canvas></div>
 <div id="boot">LOADING…</div>
-<script>window.__PRE="PRE";</script>
 <script>
 "use strict";
-window.__TEST0="T0";
-window.addEventListener("error",function(e){window.__ERR=(e&&e.error&&e.error.stack)||(e&&e.message)||String(e);});
 const POKEMON_SPRITES_B64 = {
   bulbasaur: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEVrrXv////F5pQxMTHD4nWJAAABLElEQVQYlWMIhQMGCpjxR+HMgj8wZviDA1ehTLuGA6YQZvAPhgP8EGbFA+YPPKJgJjOD/Qd7UzDz8f//f/7/BTH9z0wNjbIXADHLFmatWjU3G8T00lq1YNWqxSBmwKKuBi2rHlEgM+5FU4PyO56rQGb8JqUFPfM2gJjBDqu0NsxrADG93VetOiK3AMQsY561ikFvDdjcVbtXrVq1Hszs17L/s6oZbIWBPYO91iaQucFfGBjYP3WBtDl9YGDgP/XqKJB5evH///+1V/ECmVafgAYYrdINZQjfteL//w+rOrRBTK4eBr6G1dxAJh/TYgYjhtXMQLXnmhYzWDEtAGn7vArIXNVjC2TWv9r7/9Mq+69A5l17+VB35XKQbf7fDUODyz+CgyQWGF53UUMdAB0JqIrxC9BPAAAAAElFTkSuQmCC",
   caterpie: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEVrrXv////F5pQxMTHD4nWJAAABG0lEQVQYlWMIhQOGAWHGgJkhX4FML9FQhvCrMbxAZlVrKEOMqVE/kFm6Fcjk57I6CmQmAhXwKL9aGxrqmgvUdsauZ3VoaGwgkPn5leiLq6HhEUCm8Wpfr6uhIdGhDCENq+urWENDXwO1rVvh42UbGuoNZK5adfWFfWhoMVDBqlU9KwyuhvoDtT0+tWrBCdHQeCCzas8q5lWsYKbWYgabaaZAVzKEvj/8/1Dm1lAPUYZQK3tlrkzT0LKrDKE+PNO4ph0NfQZkhv8LPbR6YYwVkBnqZ7bBKKOqD6g2tGZd/8kZr+aDvFkYoc05rysHxIzJXnUoad1HcDj8+bXHMl8VzAxPOvz41FEwMyRfe/UKaEAd+bNiMTzMDE1DQwGo0qFz8BmXQQAAAABJRU5ErkJggg==",
@@ -53,7 +50,6 @@ const VW=240, VH=160, TS=16;            // internal resolution + tile size
 const FPS=60, DT=1000/FPS;              // fixed timestep
 const WORLD_W=512, WORLD_H=512;        // tile grid dimensions
 
-window.__S_PAL=1;
 // ─────────────────────────────────────────────────────────────────────────
 // 32-COLOUR PALETTE TABLE  (every world pixel samples from here)
 // Indices are referenced by name throughout the code.
@@ -140,7 +136,6 @@ A:"01110 10001 10001 11111 10001 10001 10001",B:"11110 10001 10001 11110 10001 1
 })();
 
 
-window.__S_FONT=1;
 // ─────────────────────────────────────────────────────────────────────────
 // REAL POKEMON SPRITES — decode embedded base64 PNGs, remap to clean palettes
 // (per-Pokemon authentic 4-colour palette, as on real Game Boy Color sprites)
@@ -225,7 +220,6 @@ const POKEMON = (function(){
 })();
 
 
-window.__S_POK=1;
 // ─────────────────────────────────────────────────────────────────────────
 // TILE ATLAS — generated at boot into one offscreen canvas
 // Layout: rows of 47 autotile slots for overlay terrains, then static tiles
@@ -452,7 +446,6 @@ const TILEATLAS = (function(){
 })();
 
 
-window.__S_ATLAS=1;
 // ─────────────────────────────────────────────────────────────────────────
 // WORLD GENERATION — graph of towns + route corridors, then detail noise
 // ─────────────────────────────────────────────────────────────────────────
@@ -676,7 +669,6 @@ const WORLD = (function(){
 })();
 
 
-window.__S_WORLD=1;
 // ─────────────────────────────────────────────────────────────────────────
 // PALETTE + TIME OF DAY  (index buffer -> RGB via swappable palette)
 // ─────────────────────────────────────────────────────────────────────────
@@ -1861,10 +1853,8 @@ async function boot(){
   last=0;
   requestAnimationFrame(loop);
 }
-window.__G={cam:()=>cam,creatures:()=>creatures,player:()=>player,POKEMON:()=>POKEMON,WORLD:()=>WORLD,started:()=>started};
 boot();
 
-window.__SENTINEL="END";
 </script>
 </body>
 </html>
