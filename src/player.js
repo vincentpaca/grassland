@@ -56,7 +56,7 @@ export async function createTrainer(scene, ctx) {
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
       let st = 'idle';
-      if (turn !== 0) st = turn > 0 ? 'turnR' : 'turnL';
+      if (turn !== 0) st = turn > 0 ? 'turnL' : 'turnR';
       else if (sp > 0.3 && shift) st = 'run';
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }

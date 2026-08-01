@@ -77,7 +77,7 @@ async function boot() {
     cam.dist = B.Scalar.Clamp(cam.dist - ctx.input.wheel * 0.5, 4, 18); ctx.input.wheel *= 0.8;
 
     const k = ctx.input.keys;
-    const turn = (k['d'] || k['arrowright'] ? 1 : 0) - (k['a'] || k['arrowleft'] ? 1 : 0);
+    const turn = (k['a'] || k['arrowleft'] ? 1 : 0) - (k['d'] || k['arrowright'] ? 1 : 0);
     const fwdIn = (k['w'] || k['arrowup'] ? 1 : 0) - (k['s'] || k['arrowdown'] ? 1 : 0);
     const shift = !!(k['shift']);
     // A/D turn character + camera together (classic 3rd-person); W/S forward/back along facing
