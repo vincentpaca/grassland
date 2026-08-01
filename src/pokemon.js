@@ -58,7 +58,11 @@ export async function createPokemon(scene, ctx) {
     // shadow casters + receive fog
     root.getChildMeshes().forEach(m => { if (ctx.shadow) ctx.shadow.addShadowCaster(m, true); m.applyFog = true; m.isPickable = false; });
 
-    list.push({ name, meta, root, anim, shadow: sh, hx, hz, dir: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.5, stateT: Math.random() * 3, moving: false, footOff, s, heading: 0 });
+    // place at home + random facing (otherwise everything spawns at origin facing 0)
+    const startHeading = Math.random() * 6.28;
+    root.position.set(hx, height(hx, hz) - footOff, hz);
+    root.rotation.y = startHeading;
+    list.push({ name, meta, root, anim, shadow: sh, hx, hz, dir: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.5, stateT: Math.random() * 3, moving: false, footOff, s, heading: startHeading });
   }
 
   function update(dt, player) {
