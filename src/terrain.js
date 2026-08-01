@@ -170,6 +170,15 @@ export function createGrassland(scene, ctx) {
       }
     }
   }
+  // place trees: forest clumps + scattered singles
+  for (let c = 0; c < 16; c++) {
+    const cx = (Math.random() - 0.5) * 330, cz = (Math.random() - 0.5) * 330;
+    if (Math.hypot(cx, cz) < 18) continue;
+    const n = 3 + Math.floor(Math.random() * 5);
+    const conifer = Math.random() < 0.35;
+    for (let k = 0; k < n; k++) makeTree(cx + (Math.random() - 0.5) * 16, cz + (Math.random() - 0.5) * 16, 0.8 + Math.random() * 0.7, conifer);
+  }
+  for (let k = 0; k < 22; k++) { const ang = Math.random() * 6.28, d = 32 + Math.random() * 170; makeTree(Math.cos(ang) * d, Math.sin(ang) * d, 0.8 + Math.random() * 0.6, Math.random() < 0.35); }
   // --- distant hills ---
   for (let k = 0; k < 10; k++) {
     const ang = (k / 10) * 6.28 + 0.2, dist = 1100;
