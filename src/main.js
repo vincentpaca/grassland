@@ -61,9 +61,8 @@ async function boot() {
   loaderEl().classList.add('hide');
   setTimeout(() => { const l = loaderEl(); if (l) l.style.display = 'none'; }, 800);
 
-  const cam = { yaw: Math.PI, pitch: 0.20, dist: 9, cur: camera.position.clone() };
-  const move = { vx: 0, vz: 0, heading: Math.PI };
-  let orbitOffset = 0;
+  const cam = { yaw: Math.PI, pitch: 0.25, dist: 9, cur: camera.position.clone() };
+  const move = { vx: 0, vz: 0 };
   let last = performance.now();
   const ft = new Array(120).fill(11); let fti = 0, tAcc = 0;
 
@@ -71,27 +70,25 @@ async function boot() {
     const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.05) dt = 0.05;
     wind.time += dt; wind.amp = 0.08 + ctx.settings.wind * 1.2;
 
-    orbitOffset += ctx.input.mouseDX * 0.005; ctx.input.mouseDX *= 0.7;
-    orbitOffset *= (1 - Math.min(1, dt * 1.2)); // free-look eases back behind the character
-    cam.pitch = B.Scalar.Clamp(cam.pitch - ctx.input.my * 0.003, 0.05, 1.1); ctx.input.my *= 0.7;
+    // Mouse orbits the camera freely (persists). WASD moves camera-relative; Mewtwo turns to face its movement.
+    cam.yaw += ctx.input.mouseDX * 0.005; ctx.input.mouseDX *= 0.7;
+    cam.pitch = B.Scalar.Clamp(cam.pitch - ctx.input.my * 0.003, 0.08, 1.1); ctx.input.my *= 0.7;
     cam.dist = B.Scalar.Clamp(cam.dist - ctx.input.wheel * 0.5, 4, 18); ctx.input.wheel *= 0.8;
 
     const k = ctx.input.keys;
-    const turn = (k['a'] || k['arrowleft'] ? 1 : 0) - (k['d'] || k['arrowright'] ? 1 : 0);
-    const fwdIn = (k['w'] || k['arrowup'] ? 1 : 0) - (k['s'] || k['arrowdown'] ? 1 : 0);
+    let ix = (k['d'] || k['arrowright'] ? 1 : 0) - (k['a'] || k['arrowleft'] ? 1 : 0);
+    let iz = (k['w'] || k['arrowup'] ? 1 : 0) - (k['s'] || k['arrowdown'] ? 1 : 0);
+    const il = Math.hypot(ix, iz) || 1; ix /= il; iz /= il;
+    const fwdx = Math.sin(cam.yaw), fwdz = Math.cos(cam.yaw);   // camera forward (Babylon left-handed)
+    const rtx = fwdz, rtz = -fwdx;                              // camera right
     const shift = !!(k['shift']);
-    // A/D turn character + camera together (classic 3rd-person); W/S forward/back along facing
-    move.heading += turn * 2.4 * dt;
-    cam.yaw = move.heading + orbitOffset;
-    const sinH = Math.sin(move.heading), cosH = Math.cos(move.heading);
-    const maxSp = shift ? 11.0 : 5.0;
-    const want = fwdIn > 0 ? maxSp : (fwdIn < 0 ? -maxSp * 0.45 : 0);
-    move.vx += (sinH * want - move.vx) * Math.min(1, dt * 9);
-    move.vz += (cosH * want - move.vz) * Math.min(1, dt * 9);
+    const want = Math.hypot(ix, iz) > 0 ? (shift ? 11.0 : 5.0) : 0;
+    const dvx = (fwdx * iz + rtx * ix) * want, dvz = (fwdz * iz + rtz * ix) * want;
+    move.vx += (dvx - move.vx) * Math.min(1, dt * 9);
+    move.vz += (dvz - move.vz) * Math.min(1, dt * 9);
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
-    player.setHeading(move.heading);
-    player.update(dt, move.vx, move.vz, wind, shift, turn);
+    player.update(dt, move.vx, move.vz, wind, shift);
 
     pokemon.update(dt, player);
     grass.update(player.position, wind);
