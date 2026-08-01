@@ -39,7 +39,7 @@ async function boot() {
   ctx.terrain = world; ctx.shadow = world.shadow;
   const player = await createTrainer(scene, ctx);
   player.position.set(0, height(0, 0), 0);
-  const pokemon = await createPokemon(scene, ctx);
+  const pokemon = await createPokemon(scene, ctx, player);
   const grass = createGrass(scene, ctx);
 
   // post
@@ -62,7 +62,7 @@ async function boot() {
   setTimeout(() => { const l = loaderEl(); if (l) l.style.display = 'none'; }, 800);
 
   const cam = { yaw: Math.PI, pitch: 0.20, dist: 9, cur: camera.position.clone() };
-  const move = { vx: 0, vz: 0 };
+  const move = { vx: 0, vz: 0, heading: Math.PI };
   let last = performance.now();
   const ft = new Array(120).fill(11); let fti = 0, tAcc = 0;
 
@@ -75,21 +75,21 @@ async function boot() {
     cam.dist = B.Scalar.Clamp(cam.dist - ctx.input.wheel * 0.5, 3.5, 18); ctx.input.wheel *= 0.8;
 
     const k = ctx.input.keys;
-    let ix = 0, iz = 0;
-    if (k['w'] || k['arrowup']) iz += 1; if (k['s'] || k['arrowdown']) iz -= 1;
-    if (k['a'] || k['arrowleft']) ix -= 1; if (k['d'] || k['arrowright']) ix += 1;
-    const il = Math.hypot(ix, iz) || 1; ix /= il; iz /= il;
-    const fwd = new B.Vector3(Math.sin(cam.yaw), 0, Math.cos(cam.yaw));
-    const right = new B.Vector3(fwd.z, 0, -fwd.x);
+    const turn = (k['d'] || k['arrowright'] ? 1 : 0) - (k['a'] || k['arrowleft'] ? 1 : 0);
+    const fwdIn = (k['w'] || k['arrowup'] ? 1 : 0) - (k['s'] || k['arrowdown'] ? 1 : 0);
     const shift = !!(k['shift']);
-    const want = Math.hypot(ix, iz) > 0 ? (shift ? 11.0 : 5.0) : 0;
-    const dvx = (fwd.x * iz + right.x * ix) * want, dvz = (fwd.z * iz + right.z * ix) * want;
+    // A/D rotate the character (and trigger turn anims); W/S move along facing
+    move.heading += turn * 2.6 * dt;
+    player.setHeading(move.heading);
+    const sinH = Math.sin(move.heading), cosH = Math.cos(move.heading);
+    const maxSp = shift ? 11.0 : 5.0;
+    const want = fwdIn > 0 ? maxSp : (fwdIn < 0 ? -maxSp * 0.45 : 0);
+    const dvx = sinH * want, dvz = cosH * want;
     move.vx += (dvx - move.vx) * Math.min(1, dt * 9);
     move.vz += (dvz - move.vz) * Math.min(1, dt * 9);
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
-    if (Math.hypot(move.vx, move.vz) > 0.15) player.setHeading(Math.atan2(move.vx, move.vz));
-    player.update(dt, move.vx, move.vz, wind, !!(k['shift']));
+    player.update(dt, move.vx, move.vz, wind, shift, turn);
 
     pokemon.update(dt, player);
     grass.update(player.position, wind);

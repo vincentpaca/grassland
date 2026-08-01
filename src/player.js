@@ -28,6 +28,15 @@ export async function createTrainer(scene, ctx) {
     turnR: findAG(groups, 'turn_r090'),
     turnL: findAG(groups, 'turn_l090'),
   };
+  // turn clips bake a 90deg root rotation; strip the root bone's channels so CODE controls facing (anim = limb flourish)
+  if (sk) {
+    const rootBone = sk.bones.find(b => !b.getParent());
+    const rootTN = rootBone && rootBone.transformNode;
+    if (rootTN) for (const key of ['turnR','turnL']) { const g = AG[key]; if (!g) continue;
+      const tas = g.targetedAnimations;
+      for (let i = tas.length - 1; i >= 0; i--) if (tas[i].target === rootTN) tas.splice(i, 1);
+    }
+  }
   // start idle by default
   let current = null;
   function play(name) {
@@ -52,15 +61,12 @@ export async function createTrainer(scene, ctx) {
     root, sk, AG, s, speed: 0, heading: 0, prevHeading: 0, t: 0, state: 'idle',
     get position() { return root.position; },
     setHeading(h) { this.heading = h; root.rotation.y = h; },
-    update(dt, vx, vz, wind, shift) {
+    update(dt, vx, vz, wind, shift, turn) {
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
-      const newH = sp > 0.1 ? Math.atan2(vx, vz) : this.heading;
-      const dH = wrap(newH - this.prevHeading);
-      this.prevHeading = newH;
-      // state selection
+      // state selection: A/D turn in place; W walk; Shift+W run; else idle
       let st = 'idle';
-      if (sp < 0.4 && Math.abs(dH) > 0.06) st = dH > 0 ? 'turnR' : 'turnL';
+      if (turn !== 0 && sp < 0.3) st = turn > 0 ? 'turnR' : 'turnL';
       else if (sp > 0.3 && shift) st = 'run';
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }
