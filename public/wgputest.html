@@ -1,0 +1,11 @@
+<!DOCTYPE html><html><body><pre id="o">probing...</pre>
+<script type="module">
+const o=document.getElementById('o');
+const log=(...a)=>{o.textContent+=a.join(' ')+'\n';};
+log('navigator.gpu=',navigator.gpu);
+try{
+  const ad=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+  log('adapter=',!!ad, ad&&ad.info&&JSON.stringify(ad.info));
+  if(ad){ const dev=await ad.requestDevice(); log('device=',!!dev, dev&&dev.label); }
+}catch(e){ log('ERR',e.message); }
+</script></body></html>
