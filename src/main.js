@@ -82,14 +82,15 @@ async function boot() {
     const il = Math.hypot(ix, iz) || 1; ix /= il; iz /= il;
     const fwd = new B.Vector3(Math.sin(cam.yaw), 0, Math.cos(cam.yaw));
     const right = new B.Vector3(fwd.z, 0, -fwd.x);
-    const want = Math.hypot(ix, iz) > 0 ? 5.0 : 0;
+    const shift = !!(k['shift']);
+    const want = Math.hypot(ix, iz) > 0 ? (shift ? 11.0 : 5.0) : 0;
     const dvx = (fwd.x * iz + right.x * ix) * want, dvz = (fwd.z * iz + right.z * ix) * want;
     move.vx += (dvx - move.vx) * Math.min(1, dt * 9);
     move.vz += (dvz - move.vz) * Math.min(1, dt * 9);
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
     if (Math.hypot(move.vx, move.vz) > 0.15) player.setHeading(Math.atan2(move.vx, move.vz));
-    player.update(dt, move.vx, move.vz, wind);
+    player.update(dt, move.vx, move.vz, wind, !!(k['shift']));
 
     pokemon.update(dt, player);
     grass.update(player.position, wind);
