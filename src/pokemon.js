@@ -18,6 +18,14 @@ const META = {
   clefairy: { beh: 'approach', flee: 9, size: 1.4 }, vulpix: { beh: 'flee', flee: 8, size: 1.4 },
 };
 
+// per-species tuning (fill from screenshots): face offset rad, ground offset m
+const TUNE = {
+  bulbasaur:{face:0}, charmander:{face:0}, squirtle:{face:0}, pikachu:{face:0}, eevee:{face:0},
+  jigglypuff:{face:0}, meowth:{face:0}, psyduck:{face:0}, oddish:{face:0}, geodude:{face:0},
+  magikarp:{face:0}, pidgey:{face:0}, rattata:{face:0}, caterpie:{face:0}, zubat:{face:0},
+  diglett:{face:0}, clefairy:{face:0}, vulpix:{face:0},
+};
+
 export async function createPokemon(scene, ctx) {
   // load each species once as an AssetContainer, then instantiate (cloned skeletons) per spawn
   const containers = {};
@@ -82,14 +90,16 @@ export async function createPokemon(scene, ctx) {
       const nhx = p.root.position.x + vx * p.speed * dt - p.hx, nhz = p.root.position.z + vz * p.speed * dt - p.hz;
       if (Math.hypot(nhx, nhz) > 14) { p.dir += Math.PI; p.stateT = 1; }
       else { p.root.position.x += vx * p.speed * dt; p.root.position.z += vz * p.speed * dt; }
+      const tune = TUNE[p.name] || {face:0};
       let faceAngle;
-      if (dist < 30) { faceAngle = Math.atan2(-dx, -dz) + Math.PI; } else { faceAngle = (Math.hypot(vx, vz) > 0.05) ? Math.atan2(vx, vz) + Math.PI : p.heading; }
+      if (dist < 34) { faceAngle = Math.atan2(-dx, -dz) + tune.face; } else { faceAngle = (Math.hypot(vx, vz) > 0.05) ? Math.atan2(vx, vz) + tune.face : p.heading; }
       p.heading += (faceAngle - p.heading) * Math.min(1, dt * 5);
       p.root.rotation.y = p.heading;
       const gy = height(p.root.position.x, p.root.position.z);
       p.root.position.y = gy - p.footOff;
       // speed up animation a touch when moving
-      if (p.anim) { const ts = p.moving ? 1.8 : 0.5; p.anim.speedRatio += (ts - p.anim.speedRatio) * Math.min(1, dt * 4); }
+      if (p.anim) { const ts = p.moving ? 1.8 : 0.6; p.anim.speedRatio += (ts - p.anim.speedRatio) * Math.min(1, dt * 4); }
+      else { const t = performance.now() * 0.003; p.root.rotation.z = Math.sin(t + p.hx) * 0.05; p.root.position.y = gy - p.footOff + Math.abs(Math.sin(t * 1.3 + p.hx)) * 0.05; }
       p.shadow.position.set(p.root.position.x, gy + 0.04, p.root.position.z);
     }
   }
