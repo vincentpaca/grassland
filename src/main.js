@@ -62,7 +62,7 @@ async function boot() {
   loaderEl().classList.add('hide');
   setTimeout(() => { const l = loaderEl(); if (l) l.style.display = 'none'; }, 800);
 
-  const cam = { yaw: Math.PI, pitch: 0.28, dist: 7, cur: camera.position.clone() };
+  const cam = { yaw: Math.PI, pitch: 0.20, dist: 9, cur: camera.position.clone() };
   const move = { vx: 0, vz: 0 };
   let last = performance.now();
   const ft = new Array(120).fill(11); let fti = 0, tAcc = 0;
@@ -95,7 +95,7 @@ async function boot() {
     grass.update(player.position, wind);
     world.update(wind, player.position);
 
-    const head = new B.Vector3(player.position.x, player.position.y + 1.5, player.position.z);
+    const head = new B.Vector3(player.position.x, player.position.y + 0.6, player.position.z);
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     const des = new B.Vector3(head.x - Math.sin(cam.yaw) * cp * cam.dist + Math.cos(cam.yaw) * 0.8, head.y + sp * cam.dist + 1.0, head.z - Math.cos(cam.yaw) * cp * cam.dist - Math.sin(cam.yaw) * 0.8);
     cam.cur = B.Vector3.Lerp(cam.cur, des, Math.min(1, dt * 7));
