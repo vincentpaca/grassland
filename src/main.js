@@ -4,6 +4,9 @@ import { createTrainer } from './player.js';
 import { createPokemon } from './pokemon.js';
 import { createGrass } from './grass.js';
 import { height } from './noise.js';
+import '@babylonjs/loaders/glTF';
+import { DracoCompression } from '@babylonjs/core/Meshes/Compression/dracoCompression';
+DracoCompression.Configuration = { decoder: { wasmUrl: '/draco/draco_wasm_wrapper_gltf.js', wasmBinaryUrl: '/draco/draco_decoder_gltf.wasm', fallbackUrl: '/draco/draco_decoder_gltf.js' } };
 
 const canvas = document.createElement('canvas');
 document.getElementById('app').appendChild(canvas);
@@ -36,7 +39,7 @@ async function boot() {
   ctx.terrain = world; ctx.shadow = world.shadow;
   const player = createTrainer(scene, ctx);
   player.position.set(0, height(0, 0), 0);
-  const pokemon = createPokemon(scene, ctx);
+  const pokemon = await createPokemon(scene, ctx);
   const grass = createGrass(scene, ctx);
 
   // post
