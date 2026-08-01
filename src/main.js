@@ -37,7 +37,7 @@ async function boot() {
 
   const world = createGrassland(scene, ctx);
   ctx.terrain = world; ctx.shadow = world.shadow;
-  const player = createTrainer(scene, ctx);
+  const player = await createTrainer(scene, ctx);
   player.position.set(0, height(0, 0), 0);
   const pokemon = await createPokemon(scene, ctx);
   const grass = createGrass(scene, ctx);

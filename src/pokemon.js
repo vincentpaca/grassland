@@ -47,11 +47,13 @@ export async function createPokemon(scene, ctx) {
     if (!root) continue;
 
     // normalise scale: fit to meta.size tall, feet at local 0
-    const bb = root.getHierarchyBoundingVectors(true);
+    let bb = root.getHierarchyBoundingVectors(true);
     const h = Math.max(0.001, bb.max.y - bb.min.y);
     const s = (meta.size * 0.9) / h;
     root.scaling.set(s, s, s);
-    const footOff = bb.min.y * s;
+    root.getChildMeshes().forEach(m => m.computeWorldMatrix(true));
+    bb = root.getHierarchyBoundingVectors(true);
+    const footOff = bb.min.y;
     // shadow
     const sh = B.MeshBuilder.CreatePlane('pks' + i, { width: meta.size * 0.9, height: meta.size * 0.5 }, scene);
     sh.rotation.x = Math.PI / 2; sh.material = shadowMat; sh.isPickable = false; sh.applyFog = false;
@@ -61,7 +63,7 @@ export async function createPokemon(scene, ctx) {
     // place at home + random facing (otherwise everything spawns at origin facing 0)
     const startHeading = Math.random() * 6.28;
     root.position.set(hx, height(hx, hz) - footOff, hz);
-    root.rotation.y = startHeading;
+    root.rotation.y = startHeading + Math.PI;
     list.push({ name, meta, root, anim, shadow: sh, hx, hz, dir: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.5, stateT: Math.random() * 3, moving: false, footOff, s, heading: startHeading });
   }
 
@@ -80,7 +82,7 @@ export async function createPokemon(scene, ctx) {
       const nhx = p.root.position.x + vx * p.speed * dt - p.hx, nhz = p.root.position.z + vz * p.speed * dt - p.hz;
       if (Math.hypot(nhx, nhz) > 14) { p.dir += Math.PI; p.stateT = 1; }
       else { p.root.position.x += vx * p.speed * dt; p.root.position.z += vz * p.speed * dt; }
-      if (Math.hypot(vx, vz) > 0.05) { p.heading += (Math.atan2(vx, vz) - p.heading) * Math.min(1, dt * 6); p.root.rotation.y = p.heading; }
+      if (Math.hypot(vx, vz) > 0.05) { p.heading += (Math.atan2(vx, vz) - p.heading) * Math.min(1, dt * 6); p.root.rotation.y = p.heading + Math.PI; }
       const gy = height(p.root.position.x, p.root.position.z);
       p.root.position.y = gy - p.footOff;
       // speed up animation a touch when moving
