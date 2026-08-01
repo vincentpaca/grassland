@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>GRASSLAND</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#0a0a0a;overflow:hidden;
+    font-family:monospace;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:#000;image-rendering:pixelated;image-rendering:crisp-edges;}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;
+    background:#000;touch-action:none;}
+  #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#8bac0f;background:#0f380f;font-family:monospace;font-size:14px;
+    letter-spacing:2px;z-index:10;}
+  #boot.gone{display:none;}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" width="240" height="160"></canvas></div>
+<div id="boot">LOADING…</div>
+<script>window.__PRE="PRE";</script>
+<script>
+"use strict";
+window.__TEST0="T0";
+window.addEventListener("error",function(e){window.__ERR=(e&&e.error&&e.error.stack)||(e&&e.message)||String(e);});
+const POKEMON_SPRITES_B64 = {
+  bulbasaur: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEVrrXv////F5pQxMTHD4nWJAAABLElEQVQYlWMIhQMGCpjxR+HMgj8wZviDA1ehTLuGA6YQZvAPhgP8EGbFA+YPPKJgJjOD/Qd7UzDz8f//f/7/BTH9z0wNjbIXADHLFmatWjU3G8T00lq1YNWqxSBmwKKuBi2rHlEgM+5FU4PyO56rQGb8JqUFPfM2gJjBDqu0NsxrADG93VetOiK3AMQsY561ikFvDdjcVbtXrVq1Hszs17L/s6oZbIWBPYO91iaQucFfGBjYP3WBtDl9YGDgP/XqKJB5evH///+1V/ECmVafgAYYrdINZQjfteL//w+rOrRBTK4eBr6G1dxAJh/TYgYjhtXMQLXnmhYzWDEtAGn7vArIXNVjC2TWv9r7/9Mq+69A5l17+VB35XKQbf7fDUODyz+CgyQWGF53UUMdAB0JqIrxC9BPAAAAAElFTkSuQmCC",
+  caterpie: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEVrrXv////F5pQxMTHD4nWJAAABG0lEQVQYlWMIhQOGAWHGgJkhX4FML9FQhvCrMbxAZlVrKEOMqVE/kFm6Fcjk57I6CmQmAhXwKL9aGxrqmgvUdsauZ3VoaGwgkPn5leiLq6HhEUCm8Wpfr6uhIdGhDCENq+urWENDXwO1rVvh42UbGuoNZK5adfWFfWhoMVDBqlU9KwyuhvoDtT0+tWrBCdHQeCCzas8q5lWsYKbWYgabaaZAVzKEvj/8/1Dm1lAPUYZQK3tlrkzT0LKrDKE+PNO4ph0NfQZkhv8LPbR6YYwVkBnqZ7bBKKOqD6g2tGZd/8kZr+aDvFkYoc05rysHxIzJXnUoad1HcDj8+bXHMl8VzAxPOvz41FEwMyRfe/UKaEAd+bNiMTzMDE1DQwGo0qFz8BmXQQAAAABJRU5ErkJggg==",
+  charmander: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEX////WSjH/xVoxMTH6c+GzAAABPElEQVQYGQXBPWsTcRwA4OcSmqhgP0BA3BwyCh3U5eYsClJOgi9dewXJYBWEUD9CkZ6WYrec8X5pIIuLIPwRJyc3IXsHnUOHoNTnwc0VQFY2CbAR5QKw2bw7A/Ri1OAKDparGW7R3o1xg4pOxGnkVGw++xeRqN7YuP93GYkql11eXkSuVeeM98dx6Fq9w8sv72PRHdQPdF9HFYvlj/pYbx1PT74Wg49H7r34tF6e1N/iSKea7g1j1oqJrL44HUTdiol2c7DTisfimPNHWs3I1g5bI+rkN7o503RjhiwRD8sJJPqfh2eQ058PDyHRnw8XyBL9eZnQOaTZ3oPegphO4O4R0fyE8oNWRII/lSyaBGWRX40qwZ3t9bTezuFJ0f21W8D1ptAuC7h9Xsim+9C9XGm/fZ4DjL4ngO4r/Ac9cH2DNQo2rQAAAABJRU5ErkJggg==",
+  clefairy: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEX/xdb/////lK0xMTGxWhq5AAABH0lEQVQY04XRvUoDQRiF4Y/IFuJPt4UXkMImnYXdxJQpXDDvTBHWGDDtGoRBBJsUXsKnV6KEgGwaWxsz2tosiApiIRiQrIUYK/FUT/0eYT75l3aGnUKuiCt12NC8DIib1WJT2y4DYj+W2QrtMiCt9y4RO6UiFJ6Y5gyEgc/g4BOE/sZAyacg7BX1a5ZeC4ROyilmtIZku85FmMcqcnjFMMaMFDlZVNCanSK96j3+LrgjJPXneMVuBHHe46AVgnAZwzqJ9gRPrtCIvOB5C7RWv9lX2s9RT+jSAXmKVTgGMC8E4QzAPKBCiIFk7BBCBCTjFGGyAiTjC8ROFrROcgPi9jezCkkB4ppKriaA2AIIRn+i+sq8b5rPaW9/q2d/fvEFyySl8LV4UWAAAAAASUVORK5CYII=",
+  diglett: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEWUc1L////WvZQxMTHRG2GkAAAAy0lEQVQYlWMIhQMGqjCD/8CZp1aZQpnhq1b1QplBq1YtgDLjZi1bDWV67Vq3QhTCrAIyr0JFV61aBRXV6j+1ihXCfHWCD2wwiMnAtALG7D8FZ65ahZ25AMKsRTAPa61a1WD/F8gMZ7ACMm0OA5kxf/hfrWIAM+uZGaxWMPxnuBrKUGDMwP///H8GUyDzMAODgfH/A7yhDMU8DAznz///zxzKEP+NgeGAwf8/nCDbPmgcOGH/YSqQGc4zzV61RxVkW8in0ISpCVOpEdQAOlqfi2yfyloAAAAASUVORK5CYII=",
+  eevee: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEWEhHP///8xMTHOzpRThpc/AAABW0lEQVQYlUXRsUtCcRAH8OuBoC0O8abaTAjbao1ni0PgkvrVzMLKbK2lLVIMmwKnH0FLVgjyoKWtSTMEy6GpPyBECBoUQyh4dt3TyN/04fjC3e+O8P/IO+b9H9YVGfpQkTNFqbchPV1FQcPWmnUNSrjtRMGXA4U9SpI90wWKftSBhK/sBUUa7VMVNIsKhLuvz6cFMyctsPTC1nPZFRDuM/MPlbaFIWa/NYldYaRjtXq32BNGp3imBwSUcJovhCoggXk2a4CeJoQ9PFdDFFJNcOGxihRWpcoWT6DyGpesddN1RdlmyM1kJLj/TQhsEV2eMAv1A/Mq2RlStbkfEz4QzvXMINZirhP8CoNYk9lLCG7iKOlkdhB2DnG8kWNZCQwHeoZmkU6ozGYaRY2cMnqlyVlNo7xw8b2c9dGV/flUKV4tZZXNkB5f/iOwouVz+ohpTZ/DiKHi6CzjY/0C4V+40iEcu6wAAAAASUVORK5CYII=",
+  geodude: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEWEhHP///8xMTHOzpRThpc/AAABWUlEQVQYlT3PsUsCcRiH8S8ngtnQJI2aIXRH4J9wLS03iq+aS1GEFgSNDYFiRJCBS9fqkVh6DUVtIXhdQ6iDU3sQTQ0JUVnZvdXvsu0zPg9ICxBpNSJCXF8hTZfMACGWfKUMX89HCHO5wX5DZW4RZrlx8OXpqTYhw6jzDE78OoJW6Kh5F+EXL8p9pcwfOeYHNApK8J75ka9QChtGn53maQsIb136uNWLylgw93YltWyNDrBqHhbzTs7yO0jna/XKO8NjI+ZT1io3PQUSEh15cempXcMI4p3I0mfX3EAddK6n2OmnpBQoSymVKetx8HOSMPjEmrR/SYXSQMpDcHoKU5AF023TgC5IpqlK5DK9wxN/rLKju4xtjtok6D+2orKgloRyFhFcpvUxyys4zm+QdMEGc7tOghfM9rbL4jP3dJfZbvefUdW6dRkLNcPkkmp5eUjNqA5Jisj7BptDug3UGyqnAAAAAElFTkSuQmCC",
+  jigglypuff: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEX/xdb/////lK0xMTGxWhq5AAABH0lEQVQYGQXBsWoTcRwA4B8WQR8gDu63KU43uNWKQ5FCyN13Z0yunUqdrhY866BueYT/6OQidHEVJGkpfYTrlqHQPIEIZtD4fQFAABAABC0geJeAoHsKBO8vgeD0drFJjtfB6R/aSdoLjm6wau8H+w/6gXqTBdPGM6NNHpx0dpTzPDicKZSPsmDWG3EvBddXpsl2H3zpvF2kYQrV0bLc+ptXQv3xLBZfd2uh+nw23/+2rIVX7UPTN8ta+DlpjF+vC1FV1yvVy9+FqAeH5hapEC74hZHwYeBSZVeoVz5p7Amu0L3IBCfo7+aCKc5vk6Ae0BYEbvCYwMHMpCfw/cn6eSKoyzvddk/Q2BoPM4Jx+aMZ5gTVP/UwJ4DzjACOE/8BBFSeUnS81t4AAAAASUVORK5CYII=",
+  magikarp: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwAgMAAAAqbBEUAAAADFBMVEX////WSjH/xVoxMTH6c+GzAAABrUlEQVQYGQXBP0hUcQAA4O94KlRnXkMENrQUgZN6KGQEryKoIWi5jBuqQYguqKusQRCNHBsiFOHi1EXDn38SxKAD8dFWRNlwDREE0dKrIVAopLi+DwAAOg0D8K11D4AoWz4MDJPdZRG0jl6Jc9ndj0Hvn57pbR0r4OB277NrcSiDW5ullfbC0iL48jWN+yY/jUNm40ZIahMfyxBV58JOZbaeGCQTpkIpXWo0/hVwfSesh/shTAyiMVQJ82Gk0YhRH7oZlqohzCZIi6/DWloo9ENp6mmYnJ2RQVScWg1zxRlZZIYuroalwqgcmu/1r4aF0gWdg+w9M7IVlqu74pO/aHlf3wq15fjI5xzt5wt3n6e1+Uw5pisq3N5plJZPJwl59TtpGmprozF5Jy6laahMPURe29+RENLSA+S1XF4PCyEdwz7tk4eKL+bDI2TjvqPHf5emwxhakrMd7zYa/SGHKEnenPuR9Fc6kfkQdY9XVw5UOmEr2/3y1WbPXA66NpueVO0fiKFJ9m2i+XsCWVFE66kEgMxKAkB0NQHAQAKAnzEAjgFAGwBkAAAAAAD4Dwslo07jw+QdAAAAAElFTkSuQmCC",
+  meowth: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEX//5z////mvUoxMTFRp/nvAAABVUlEQVQY0z3QOywDcRzA8Z8ICQaTdJHYGUwdGJhNFt87cs6FxK7DDTRpLGUQ6SC323D1WhpK1CMRYuniTzz6MFwkJ8QjDVFRw1W3z/wRQIMRQADdwfynMvL/nLSjAY3HcKJgeAhY5Ztj87CEgLVVyObeA3adHZknJYRfq/Ujmyt7iNF81xc5as8qZMJdeYskzq8UMvO9c8xUGIUsuPvxjKHSvWl5Wh5qvHa0vOXIk7s336b0kI34/vWisk2VQvyMNqcc7cpG9tRAnQtrp8jM5VaxAYYekMgtu/VSP5hpk3EHY7lwX8IT04afSsUBGZ5GW6pcKhC94/PR7N+wQShv7oS+CIMQW++OD4oHQqxl47Wn4oAQdZMJFexMfCdnaQKEMXe1KGFA0P34S1IFUVN1/b9O9ax5etSuTl7Yo2NVbntGyAtoKL0zHRDwn2t8OagxmqrRUvAHvnnCwzE8DekAAAAASUVORK5CYII=",
+  oddish: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEVrrXv////F5pQxMTHD4nWJAAABHklEQVQY00XQMUsDQRQE4DFnIclhqu0tJQQxVmrh+QMEwdx4jeY3BMsgREjnz7CSvUQ4IU0KXdADCYKVnaClxMYT0mj0Weyudl8xPGYeSJJxThIkyaOhZYOcDCzfVHK2bNnJWqdflq20M3puSgFybzSpPY21Ahn39eRD9wnuJL1z/VkeEqxFpV7tTj8S8VhvBeWVlMRh6+oiWNgckGCc9sOKkRnBRL+ElbVLrUAurYfB61hnIE01rC/qVIFsB2F9VWcEmeD+xKSKIGnMrJTZFcfAjbJsAw23zQAblsk8tucsDwD8eL4Hs3+Kp4kcE1TljyIuyweRwrEr4j/ZFBHXgdGt5I5dFRWO13n32wemnvsy3XWMJW8Wnir2F9ZIkr8Dsqi0KwOkUgAAAABJRU5ErkJggg==",
+  pidgey: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEWUc1L////WvZQxMTHRG2GkAAABHUlEQVQYlWMIhQMG0pixd2DM2GLjWiiz+ACzOJQpzMAXehXCvM1gmQxlVhy48R+qwP9//2Yos7z+ew1Ugfn//zDmf43H/00hzPMrzOyhzDMLvvbzQJj8/F9tGI6CmXV/nnxg4A0N/whkPg5jYGAOjeFlCK2sDW1gYLhaAGS6hoKYpgeATMHQ0BwGpX7mrwyhd8PC5zBorbExBTGnCShMW3wAyHwr1np9Rmg3w1GG0EdXt3qEhVbzA62wOLq26mpo/lEgM774tNbLmHhwOJwMzdoVLg1mFoVm9aw6DWbGT123+NAGSJh9WrfAxhbCjDnd/PkriBn8/7PBWajnXzHwH4b4Iqaa/zPQ6WC1hvd6GmxFIdr8j+8JgUWAPzh0AEBSoroahKvkAAAAAElFTkSuQmCC",
+  pikachu: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEX//5z////mvUoxMTFRp/nvAAABH0lEQVQYGQXBvWoVQRgA0M/CQgu7JU9ga5fKJq2IRGTPzF6818Vi81P4hwzRRUkV32DSCTZpLlhYWKQQSSG+gIO1RSpfIIIYz4k9APGsAsT4ByAe/gaI3BqkyxqpFaSL7RqOHt29fHfhlnDWV4P+VHjewda5sDzC1g1C6jCcEzJkUkgjY2IMw0Fz8KN6GVaHzWFrvofFyKjmjbBTc7U/LXOYT7AuL3KYT46Prcu3HHbq6yf2d7scVuCvHAboP0khQZoswuD+Ff17Jaz0V/mphZWmqa2ERa1q3VXC1KakvVVD2Sw5d682hHKz5NS9uSaUe1NamjeF8qD5Zf4oTGD+LCzA7SaswBdChr4RtD66jODx9fWHOwjaqacZwdcq/cN/ODmhywAX7cgAAAAASUVORK5CYII=",
+  psyduck: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEX//5z////mvUoxMTFRp/nvAAABSElEQVQYGQXBsUpbUQCA4Z/jIl61DkJXEbooVpeCCELHUkoJ6f1vkCTSNzAUHFzKRfARTt+gS+xQLEocklxEF2cPDi5ZLFLn0sYlfh+q6oGiqg4U1ebk2/25aPF7xPrdJKJfezUYRtHrK2B9LDayBWBlmLCYBcgUW9PDEmYUO8uLSwxCFMvt9kZYPElitW011X6fxHJzl+DHJAUno2F5NJ+kQW/ejc3XUQp+/Hv54vBRsVyN1paPFatuMt/qK35Z1fzxr2JrTvPemmLrleZVthex80bzKlTf8fOR5iWHp1gmrcNWxIuknyAT/0StTzMnDvr6bvZtEG/PdClbmJJmuon1KlwSacd88p9wSWLH/AHCTxKFtRGEX2WiYW0EM/1OxBQeYOV0V+xkT4RuUmyOi6fusYrauJiMVdT2/oc1FbWZzu5VVAeqPgMZQZjxqHXG3AAAAABJRU5ErkJggg==",
+  rattata: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEWEhHP///8xMTHOzpRThpc/AAABI0lEQVQY023KMUtCURyG8bcDF7onGi81WnDKJBCCtobWhEDkvEeTBhsKEhKaIqc/NwTHCA4FLddB0Lu3amN9gPaWvoBTREPD1Tv1TL/hAbMqnshkZWfBKtSCDcDPeahytiBBzoJZDDnbTxADXpKUrRgGjEmnwjYCWHg2Vt4pHu7zIR2VZxQP952gMM34AyxPZ5QIdg9Q01cbE+xDJeXQgWAFen231A8JdrB9r1EaEqVNlEWnOiLOitAHg3pMwk4KH/W1ESKCj6tkF/AEL/jCJGONxgEICLqboAnAELTi3wAxBN3oNMGdLBF0G11REwkJVnUqatwKCTZUKno4p4XuHV8TvLp10NH+F8Gjc/dr+Nwj2IxO6p5FEiRrHZIZ7SDnvP/5BxuDfxrJzytiAAAAAElFTkSuQmCC",
+  squirtle: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEU6xeb////W5v8xMTHTGxf5AAABOElEQVQYlWMIhQMGIpjB/4/CmKdWrYEyw1etWnUVwowDMlshzCAgcyuEmbJqxalGCNN91cJPvRBm8aq1/3ghTP9Va85BmQqrFsvwi4KY4a9Wrfj8D2QaQ5GR0qp1+/aAmF67V9k09TkAVTDErTmzympRAtBqhqAFp1a80A4AiYasePz/hcYMVpAJq7NW7Vol/hVk7uuoVWtW3QCJhhaEZi3WEmAEMWPt/x9nnsMLZoaHhtokgJnx4aHh6xzAzMArobG5BbYgZkipaGmi80F/UaCPgeGwYg3rq61A0WuawZ9fm69aC/Txrq7pC07dW7UQGA49uxatsOpatRjIXPCpb5U9V98CoIIV9v9WGTBpANWGrOCNW8XDcKoRFGamcat47RlMgaL/RYNW8YaCrACCcA1TeAT4oMUFAPPVqa7AqFeWAAAAAElFTkSuQmCC",
+  vulpix: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEVrrXv////F5pQxMTHD4nWJAAABLElEQVQYlWMIhQMGCpjxR+HMgj8wZviDA1ehTLuGA6YQZvAPhgP8EGbFA+YPPKJgJjOD/Qd7UzDz8f//f/7/BTH9z0wNjbIXADHLFmatWjU3G8T00lq1YNWqxSBmwKKuBi2rHlEgM+5FU4PyO56rQGb8JqUFPfM2gJjBDqu0NsxrADG93VetOiK3AMQsY561ikFvDdjcVbtXrVq1Hszs17L/s6oZbIWBPYO91iaQucFfGBjYP3WBtDl9YGDgP/XqKJB5evH///+1V/ECmVafgAYYrdINZQjfteL//w+rOrRBTK4eBr6G1dxAJh/TYgYjhtXMQLXnmhYzWDEtAGn7vArIXNVjC2TWv9r7/9Mq+69A5l17+VB35XKQbf7fDUODyz+CgyQWGF53UUMdAB0JqIrxC9BPAAAAAElFTkSuQmCC",
+  zubat: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoAgMAAADxkFD+AAAADFBMVEX///+ttf9KUqUxMTHFyCG8AAABDklEQVQYGZXBwSuDYRzA8e/z27umMZaaOTruQDg4TLJH5CRt5aBc5u6ws9OSy5y4LC5SdlD8Dx4Hd2oSp6VEa+VVa4x3e5hXu+/zgd4ZulwQXDo8kLFDOl5AjsswWZGgwYl9IMV9lQkhzoEJH5m+zCjSiqeeh1G5NZiZ4+7GTFdPEXZjO2WKWhlpKk3/4rq9RlpLtBeSGyfvWWH7jKFCDi8dGNl7CEUK4ebtqpAd32zHa/AqbTPgXK1cfuFIxRC0bxiMUCJFlBph4RNtvi8sSpoNtpRnDa6S+dkplqOh5D2iA9XzOoJAHmvr/BJAqyD/JhjU+CJQwRfQJADhz5MGASw00vjykADB96jpitKLH2PFU6VnWNSwAAAAAElFTkSuQmCC",
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// CORE CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────
+const VW=240, VH=160, TS=16;            // internal resolution + tile size
+const FPS=60, DT=1000/FPS;              // fixed timestep
+const WORLD_W=512, WORLD_H=512;        // tile grid dimensions
+
+window.__S_PAL=1;
+// ─────────────────────────────────────────────────────────────────────────
+// 32-COLOUR PALETTE TABLE  (every world pixel samples from here)
+// Indices are referenced by name throughout the code.
+// ─────────────────────────────────────────────────────────────────────────
+const PAL = [
+// 0  deep void / outline-black
+"#0f1810", "#1c2a1a", "#2a3a24", "#3c5028",  // greens: shadow, dark, mid, light-grass-shadow
+"#5a7a2c", "#7caa38", "#9ccc48", "#b8e058",  // grass shades
+"#d8e878", "#f0f0a0",                          // grass highlight, pale
+// dirt / sand / path
+"#5a3820", "#8a5828", "#b88848", "#e0b878",
+"#f0d8a0", "#d8c898",
+// water
+"#183048", "#28506c", "#387898", "#58a0c0", "#88c8e0",
+// rock / cliff
+"#403428", "#604838", "#806048", "#a08868",
+// tree / structure wood
+"#382010", "#5a3018", "#783820",
+// roof / brick
+"#a83820", "#c85028", "#e07040",
+// snow / white / misc
+"#e8e8d8", "#a8a898",
+// flower accents
+"#d84060", "#f0a020",
+// count check (pad to 32)
+];
+// ensure exactly 32 (filled above; verify at boot)
+// palette: 34 colours (deviation from 32 — see DECISIONS.md)
+
+// Named indices for readability
+const C = {
+  OUT:0, GRASS_DK:3, GRASS:6, GRASS_LT:7, GRASS_HL:8,
+  DIRT_DK:11, DIRT:12, DIRT_LT:13, SAND:14, PATH:14,
+  WATER_DK:18, WATER:19, WATER_LT:20,
+  ROCK_DK:21, ROCK:22, ROCK_LT:23,
+  WOOD_DK:24, WOOD:25, TRUNK:25,
+  ROOF_DK:27, ROOF:28, ROOF_LT:29,
+  WHITE:30, FLOWER_PINK:32, FLOWER_YEL:33,
+};
+// (flower indices 32/33 are the last two entries)
+
+// ─────────────────────────────────────────────────────────────────────────
+// DETERMINISTIC RNG (mulberry32 + hash helpers)
+// ─────────────────────────────────────────────────────────────────────────
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function hash2(x,y,s){let h=(x*374761393+y*668265263+s*0x9E3779B9)|0;h=Math.imul(h^h>>>15,2246822519);h=Math.imul(h^h>>>13,3266489917);return (h^h>>>16)>>>0;}
+
+// ─────────────────────────────────────────────────────────────────────────
+// OFFSCREEN CANVAS HELPER
+// ─────────────────────────────────────────────────────────────────────────
+function mkCanvas(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;return c;}
+
+// ─────────────────────────────────────────────────────────────────────────
+// BITMAP FONT  (5x7 glyphs, drawn as glyph quads — never fillText)
+// ─────────────────────────────────────────────────────────────────────────
+const FONT = (function(){
+  // 5x7 bitmaps for A-Z 0-9 and punctuation. 1 bit = lit.
+  const G={
+A:"01110 10001 10001 11111 10001 10001 10001",B:"11110 10001 10001 11110 10001 10001 11110",C:"01110 10001 10000 10000 10000 10001 01110",D:"11110 10001 10001 10001 10001 10001 11110",E:"11111 10000 10000 11110 10000 10000 11111",F:"11111 10000 10000 11110 10000 10000 10000",G:"01110 10001 10000 10111 10001 10001 01110",H:"10001 10001 10001 11111 10001 10001 10001",I:"01110 00100 00100 00100 00100 00100 01110",J:"00111 00010 00010 00010 00010 10010 01100",K:"10001 10010 10100 11000 10100 10010 10001",L:"10000 10000 10000 10000 10000 10000 11111",M:"10001 11011 10101 10101 10001 10001 10001",N:"10001 11001 10101 10011 10001 10001 10001",O:"01110 10001 10001 10001 10001 10001 01110",P:"11110 10001 10001 11110 10000 10000 10000",Q:"01110 10001 10001 10001 10101 10010 01101",R:"11110 10001 10001 11110 10100 10010 10001",S:"01111 10000 10000 01110 00001 00001 11110",T:"11111 00100 00100 00100 00100 00100 00100",U:"10001 10001 10001 10001 10001 10001 01110",V:"10001 10001 10001 10001 10001 01010 00100",W:"10001 10001 10001 10101 10101 11011 10001",X:"10001 10001 01010 00100 01010 10001 10001",Y:"10001 10001 01010 00100 00100 00100 00100",Z:"11111 00001 00010 00100 01000 10000 11111",
+"0":"01110 10001 10011 10101 11001 10001 01110","1":"00100 01100 00100 00100 00100 00100 01110","2":"01110 10001 00001 00010 00100 01000 11111","3":"11110 00001 00001 01110 00001 00001 11110","4":"00010 00110 01010 10010 11111 00010 00010","5":"11111 10000 10000 11110 00001 00001 11110","6":"01110 10000 10000 11110 10001 10001 01110","7":"11111 00001 00010 00100 01000 01000 01000","8":"01110 10001 10001 01110 10001 10001 01110","9":"01110 10001 10001 01111 00001 00001 01110",
+" ":"00000 00000 00000 00000 00000 00000 00000",".":"00000 00000 00000 00000 00000 00100 00100",",":"00000 00000 00000 00000 00100 00100 01000","!":"00100 00100 00100 00100 00100 00000 00100","?":"01110 10001 00001 00010 00100 00000 00100",":":"00000 00100 00000 00000 00000 00100 00000",";":"00000 00100 00000 00000 00100 00100 01000","'":"00100 00100 00000 00000 00000 00000 00000","\"":"01010 01010 00000 00000 00000 00000 00000","-":"00000 00000 00000 11111 00000 00000 00000","+":"00000 00100 00100 11111 00100 00100 00000","/":"00001 00010 00010 00100 01000 01000 10000","(":"00010 00100 01000 01000 01000 00100 00010",")":"01000 00100 00010 00010 00010 00100 01000","#":"01010 01010 11111 01010 11111 01010 01010","&":"01100 10010 01100 10010 10001 10010 01101","=":"00000 00000 11111 00000 11111 00000 00000",">":"10000 01000 00100 00010 00100 01000 10000","<":"00010 00100 01000 10000 01000 00100 00010","*":"00000 01010 00100 11111 00100 01010 00000","_":"00000 00000 00000 00000 00000 00000 11111","[":"11110 10000 10000 10000 10000 10000 11110", "]":"10111 00010 00010 00010 00010 00010 10111"
+  };
+  // build atlas of all glyphs into one offscreen canvas (8x16 cells, char w=5 h=7)
+  const chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!:;?'\"-+/()#&=><*_[]";
+  const cw=6, ch=8; // cell size incl spacing
+  const atlas=mkCanvas(chars.length*cw, ch);
+  const ax=atlas.getContext("2d");
+  ax.imageSmoothingEnabled=false;
+  const map={};
+  for(let i=0;i<chars.length;i++){
+    const chx=chars[i]; let key=chx;
+    // uppercase keys in G are A-Z; map char to bitmap
+    let bits=G[chx]||G[chx.toUpperCase()]||G[" "];
+    const rows=bits.split(" ");
+    for(let r=0;r<rows.length;r++){
+      const row=rows[r];
+      for(let c=0;c<row.length;c++){
+        if(row[c]==="1"){ax.fillStyle="#fff";ax.fillRect(i*cw+c,r,1,1);}
+      }
+    }
+    map[chx.charCodeAt(0)]=i*cw;
+  }
+  return {atlas, map, cw, ch, gh:7, gw:5};
+})();
+
+
+window.__S_FONT=1;
+// ─────────────────────────────────────────────────────────────────────────
+// REAL POKEMON SPRITES — decode embedded base64 PNGs, remap to clean palettes
+// (per-Pokemon authentic 4-colour palette, as on real Game Boy Color sprites)
+// ─────────────────────────────────────────────────────────────────────────
+const POKEMON = (function(){
+  const names=Object.keys(POKEMON_SPRITES_B64);
+  const list=[];
+  const loaded=[];
+  names.forEach((nm)=>{
+    const img=new Image();
+    img.src=POKEMON_SPRITES_B64[nm];
+    loaded.push(new Promise(res=>{img.onload=()=>res({nm,img});img.onerror=()=>res({nm,img:null});}));
+  });
+  // metadata: terrain preference, activity window, behaviour, size, rarity
+  const META={
+    bulbasaur:{terrain:"grass",time:"day",beh:"wander",size:24,rarity:0.2,name:"BULBASAUR",desc:"A calm seed POKEMON that naps in sunny clearings."},
+    charmander:{terrain:"sand",time:"day",beh:"approach",size:24,rarity:0.22,name:"CHARMANDER",desc:"Its tail flame betrays emotion. Friendly, often curious about people."},
+    squirtle:{terrain:"water",time:"day",beh:"wander",size:24,rarity:0.22,name:"SQUIRTLE",desc:"Shells into its shell at the slightest sound, then peeks out."},
+    pikachu:{terrain:"grass",time:"day",beh:"approach",size:24,rarity:0.3,name:"PIKACHU",desc:"Stores electricity in cheek sacs. Twitches its tail when happy."},
+    eevee:{terrain:"grass",time:"dusk",beh:"flee",size:24,rarity:0.3,name:"EEVEE",desc:"Unstable genetics. Skittish; flees before you can get close."},
+    jigglypuff:{terrain:"grass",time:"night",beh:"wander",size:24,rarity:0.25,name:"JIGGLYPUFF",desc:"Sings a lullaby. Inflate when startled. Approach very slowly."},
+    meowth:{terrain:"town",time:"night",beh:"flee",size:24,rarity:0.28,name:"MEOWTH",desc:"Adores coins. Patrols town paths after dark, darting between homes."},
+    psyduck:{terrain:"water",time:"day",beh:"wander",size:24,rarity:0.22,name:"PSYDUCK",desc:"Plagued by headaches. Stands blankly by pond edges."},
+    oddish:{terrain:"grass",time:"night",beh:"flee",size:16,rarity:0.2,name:"ODDISH",desc:"Scatters its seeds at night. Buries its roots by day."},
+    geodude:{terrain:"cliff",time:"day",beh:"wander",size:24,rarity:0.2,name:"GEODUDE",desc:"Lives on craggy cliffs. Easy to mistake for a boulder."},
+    magikarp:{terrain:"water",time:"day",beh:"wander",size:24,rarity:0.15,name:"MAGIKARP",desc:"A weak POKEMON. Splashes listlessly in ponds and rivers."},
+    pidgey:{terrain:"grass",time:"day",beh:"flee",size:16,rarity:0.18,name:"PIDGEY",desc:"A docile bird. Does not like strong wind and stays low."},
+    rattata:{terrain:"grass",time:"night",beh:"flee",size:16,rarity:0.18,name:"RATTATA",desc:"Will chew on anything. Active at night along route verges."},
+    caterpie:{terrain:"grass",time:"day",beh:"wander",size:16,rarity:0.18,name:"CATERPIE",desc:"Releases a foul scent from its horns to repel foes."},
+    zubat:{terrain:"cliff",time:"night",beh:"flee",size:16,rarity:0.18,name:"ZUBAT",desc:"Cave dweller with no eyes. Echolocates in the dark."},
+    diglett:{terrain:"grass",time:"day",beh:"wander",size:16,rarity:0.2,name:"DIGLETT",desc:"Lives a metre under the soil. Pops up in tall grass."},
+    clefairy:{terrain:"grass",time:"night",beh:"approach",size:24,rarity:0.3,name:"CLEFAIRY",desc:"Said to come from the moon. Gathers on quiet mountain nights."},
+    vulpix:{terrain:"grass",time:"dusk",beh:"flee",size:24,rarity:0.28,name:"VULPIX",desc:"Born with one tail that splits as it grows. Quick and shy."},
+  };
+  function build(nm,img){
+    const meta=META[nm];
+    // draw to canvas, read pixels
+    const cw=img.width, ch=img.height;
+    const cv=mkCanvas(cw,ch); const cx=cv.getContext("2d");
+    cx.imageSmoothingEnabled=false; cx.drawImage(img,0,0);
+    const data=cx.getImageData(0,0,cw,ch).data;
+    // collect unique opaque colours, sort by lightness; choose outline = darkest opaque, light = lightest, mid = mid
+    const cmap=new Map();
+    for(let i=0;i<data.length;i+=4){
+      if(data[i+3]<128) continue;
+      const k=(data[i]<<16)|(data[i+1]<<8)|data[i+2];
+      cmap.set(k,(cmap.get(k)||0)+1);
+    }
+    const cols=[...cmap.keys()].map(k=>({k,r:(k>>16)&255,g:(k>>8)&255,b:k&255,n:cmap.get(k)}));
+    cols.sort((a,b)=>(a.r+a.g+a.b)-(b.r+b.g+b.b));
+    // Gen1 yellow palette: darkest=outline(near-black), then darkshade, lightshade, white(bg, usually transparent)
+    // After dropping transparent, remaining: outline + 2 shades.
+    const outline = cols.length? cols[0] : {r:49,g:49,b:49};
+    const light = cols.length>2? cols[cols.length-1] : (cols.length>1?cols[1]:cols[0]);
+    const dark  = cols.length>2? cols[cols.length-2] : (cols.length>0?cols[0]:outline);
+    // Build a palettized canvas with exactly 4 slots: 0 transparent,1 light,2 dark,3 outline
+    const pc=mkCanvas(cw,ch); const px=pc.getContext("2d");
+    const id=px.createImageData(cw,ch);
+    for(let i=0;i<cw*ch;i++){
+      const s=i*4;
+      id.data[s+3]=data[s+3];
+      if(data[s+3]<128) continue;
+      const r=data[s],g=data[s+1],b=data[s+2];
+      let idx=3;
+      // match nearest of {light,dark,outline}
+      const opts=[light,dark,outline];
+      let bd=1e9;
+      for(let j=0;j<opts.length;j++){const d=(opts[j].r-r)**2+(opts[j].g-g)**2+(opts[j].b-b)**2;if(d<bd){bd=d;idx=j+1;}}
+      id.data[s]=idx; id.data[s+1]=idx; id.data[s+2]=idx; id.data[s+3]=255;
+    }
+    px.putImageData(id,0,0);
+    return {name:nm,meta,w:cw,h:ch,canvas:pc,
+      pal:["transparent",`rgb(${light.r},${light.g},${light.b})`,`rgb(${dark.r},${dark.g},${dark.b})`,`rgb(${outline.r},${outline.g},${outline.b})`]};
+  }
+  // returns a promise; resolved at boot
+  const ready=Promise.all(loaded).then(res=>{
+    res.forEach(r=>{ if(r.img){ list.push(build(r.nm,r.img)); } });
+    list.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));
+    return list;
+  });
+  return {ready, list, META};
+})();
+
+
+window.__S_POK=1;
+// ─────────────────────────────────────────────────────────────────────────
+// TILE ATLAS — generated at boot into one offscreen canvas
+// Layout: rows of 47 autotile slots for overlay terrains, then static tiles
+// ─────────────────────────────────────────────────────────────────────────
+const T_GRASS=0,T_WATER=1,T_PATH=2,T_SAND=3,T_CLIFF=4,T_TALLGRASS=5,T_LEDGE_DN=6,T_LEDGE_UP=7,T_LEDGE_LT=8,T_LEDGE_RT=9;
+// overlay terrains that use 47-blob autotiling against the grass base:
+const OVERLAYS=[T_WATER,T_PATH,T_SAND,T_CLIFF,T_TALLGRASS];
+
+// ---- 47-tile blob mapping ----
+// side bits: N=1 E=2 S=4 W=8 ; corner bits: NE=16 SE=32 SW=64 NW=128
+const REDUCE256=new Int8Array(256).fill(-1);
+(function(){
+  let idx=0;
+  for(let m=0;m<256;m++){
+    const N=m&1,E=m&2,S=m&4,W=m&8;
+    let c=m&0xF0;
+    // NE valid only if N&&E ; etc.
+    if(!(N&&E)) c&=~16;
+    if(!(S&&E)) c&=~32;
+    if(!(S&&W)) c&=~64;
+    if(!(N&&W)) c&=~128;
+    const r=(m&15)|c;
+    if(REDUCE256[r]<0){ REDUCE256[r]=idx++; }
+    REDUCE256[m]=REDUCE256[r];
+  }
+})();
+const AT_COLS=47;          // autotile slots per row
+const AT_SLOT=AT_COLS;     // for static tiles we place after row 5
+
+// palette per terrain (drawn over grass base): [fill, shade(highlight), edgeDark]
+const TERR_COL={
+  [T_WATER]:{fill:19,shade:20,edge:18,t:2},
+  [T_PATH]: {fill:13,shade:14,edge:12,t:2},
+  [T_SAND]: {fill:15,shade:14,edge:13,t:2},
+  [T_CLIFF]:{fill:22,shade:23,edge:21,t:2},
+  [T_TALLGRASS]:{fill:6,shade:7,edge:5,t:2},
+};
+
+// grass base texture pattern (wrap-safe, period 4 divides 16)
+function drawGrassBase(px,x0,y0){
+  const img=px.createImageData(16,16);
+  for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+    let c=6;
+    if((x&3)==0 && (y&3)==0) c=7;        // light speckle
+    else if((x&3)==2 && (y&3)==2) c=5;   // dark speckle
+    else if(x===0||y===0) c=4;           // subtle seam shade (wraps)
+    const o=(y*16+x)*4;
+    img.data[o]=0;img.data[o+1]=0;img.data[o+2]=0;img.data[o+3]=c; // store palette idx in RGB? no — store as packed
+  }
+  // store palette idx in a Uint8 buffer instead, draw via fillRect loops:
+}
+
+// We render tiles by writing palette indices into an index buffer, then convert once.
+const TILEATLAS = (function(){
+  // count static tiles
+  const staticTiles=["GRASS","TREE_C","TREE_T","FLWR_P","FLWR_Y","FENCE_H","FENCE_V","SIGN",
+    "WALL","ROOF_L","ROOF_C","ROOF_R","DOOR","WINDOW","IFLOOR","IWALL","LEDGE_DN","LEDGE_UP",
+    "LEDGE_LT","LEDGE_RT","BRIDGE_H","BRIDGE_V","PATH_NOD","PATH_CTR","WATER_DEEP"];
+  const STAT={}
+  staticTiles.forEach((n,i)=>STAT[n]=i);
+  const statCount=staticTiles.length;
+  const rows=OVERLAYS.length + Math.ceil(statCount/AT_COLS);
+  const Wpx=AT_COLS*16, Hpx=rows*16;
+  const idxBuf=new Uint8Array(Wpx*Hpx);  // palette indices
+  // returns a function to paint palette index at atlas pixel
+  function setP(ax,ay,col){ idxBuf[ay*Wpx+ax]=col; }
+  function fillRect(ax,ay,w,h,col){ for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++) idxBuf[(ay+yy)*Wpx+ax+xx]=col; }
+
+  // grass base texture into a 16x16 region starting at (ox,oy)
+  function grassInto(ox,oy){
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+      let c=6;
+      if((x&3)==0&&(y&3)==0)c=7; else if((x&3)==2&&(y&3)==2)c=5;
+      else if(x===0||y===0)c=4;
+      idxBuf[(oy+y)*Wpx+ox+x]=c;
+    }
+  }
+  // draw one blob tile for terrain t into atlas slot col `slot` (0..46), row `row`
+  function drawBlob(row,slot,terrain){
+    const ox=slot*16, oy=row*16;
+    const tc=TERR_COL[terrain];
+    grassInto(ox,oy); // base = grass
+    // enumerate the reduced mask for this slot by finding a mask m with REDUCE256[m]===slot
+    let mask=-1;
+    for(let m=0;m<256;m++){ if(REDUCE256[m]===slot){ mask=m; break; } }
+    // reduce invalid corner bits (corner only counts when both adjacent sides set)
+    {const Nn=mask&1,Ee=mask&2,Ss=mask&4,Ww=mask&8; let cc=mask&0xF0;
+      if(!(Nn&&Ee))cc&=~16; if(!(Ss&&Ee))cc&=~32; if(!(Ss&&Ww))cc&=~64; if(!(Nn&&Ww))cc&=~128;
+      mask=(mask&15)|cc;}
+    const N=mask&1,E=mask&2,S=mask&4,W=mask&8, NE=mask&16,SE=mask&32,SW=mask&64,NW=mask&128;
+    const t=tc.t;
+    const nopen=()=>!(N), eopen=()=>!(E), sopen=()=>!(S), wopen=()=>!(W);
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+      let cover=true;
+      if(!N && y<t) cover=false;
+      if(!S && (15-y)<t) cover=false;
+      if(!W && x<t) cover=false;
+      if(!E && (15-x)<t) cover=false;
+      // corner overrides (concave fill = terrain wraps in)
+      // NW
+      if(x<t && y<t && !N && !W && NW) cover=true;
+      if(x>=(16-t) && y<t && !N && !E && NE) cover=true;
+      if(x>=(16-t) && y>=(16-t) && !S && !E && SE) cover=true;
+      if(x<t && y>=(16-t) && !S && !W && SW) cover=true;
+      if(cover){
+        let col=tc.fill;
+        // two-tone shading: lighter near top-left lit edge, darker at bottom-right
+        if((!N && y===t)||(!W && x===t)) col=tc.shade;
+        else if((!S && (15-y)===t)||(!E && (15-x)===t)) col=tc.edge;
+        // dither band for water
+        if(terrain===T_WATER && cover){
+          if((y===t+1 && !N) || (y===15 && S)) col=tc.shade;
+        }
+        idxBuf[(oy+y)*Wpx+ox+x]=col;
+      }
+    }
+  }
+  // generate overlay blobs
+  OVERLAYS.forEach((terr,row)=>{ for(let s=0;s<47;s++) drawBlob(row,s,terr); });
+
+  // GRASS static tile (plain grass texture)
+  grassInto(slotXY("GRASS")[0], slotXY("GRASS")[1]);
+  // ROOF_C flat roof centre
+  clearTile("ROOF_C"); (function(){const[ox,oy]=slotXY("ROOF_C");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=28; if(y===0||y===1)c=29; if(y===15)c=27; if((x+y)%5===0&&y<8)c=27; idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+
+  // helper for static tile region
+  function slotXY(name){ const i=STAT[name]; const baseRow=OVERLAYS.length; const col=(i%AT_COLS), row=baseRow+Math.floor(i/AT_COLS); return [col*16,row*16]; }
+
+  // ---- static tiles ----
+  function rect(name,x,y,w,h,col){ const [ox,oy]=slotXY(name); fillRect(ox+x,oy+y,w,h,col); }
+  function pxset(name,x,y,col){ const [ox,oy]=slotXY(name); idxBuf[(oy+y)*Wpx+ox+x]=col; }
+
+  // TREE canopy (leafy blob on transparent-ish grass base so it floats as object)
+  // We'll draw canopy on a base of "void" (so object tiles can be stamped over world). Use index 0 as transparent.
+  function clearTile(name){ const [ox,oy]=slotXY(name); fillRect(ox,oy,16,16,255); } // 255 = transparent marker
+  // TREE: 16x16 canopy
+  clearTile("TREE_C");
+  (function(){const[ox,oy]=slotXY("TREE_C");const R=[4,6,5,3,2,5,3,2];
+    // leafy circle radius
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+      const dx=x-7.5,dy=y-6.5; const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<6.5){ let c=5; if(d<2.2)c=8; else if(d<4)c=7; else if(d>5.5)c=3; idxBuf[(oy+y)*Wpx+ox+x]=c; }
+      else if(d<7.2){ idxBuf[(oy+y)*Wpx+ox+x]=0; } // outline
+    }})();
+  // TREE trunk tile (lower part)
+  clearTile("TREE_T");
+  (function(){const[ox,oy]=slotXY("TREE_T");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+      if(x>=5&&x<=10 && y>=0&&y<=15){ let c=25; if(x===5||x===6)c=24; if(y<3)c=25; idxBuf[(oy+y)*Wpx+ox+x]=c; }
+      else if(x>=4&&x<=11 && y>=12){ let c=24; idxBuf[(oy+y)*Wpx+ox+x]=c; } // root flare
+    }})();
+
+  // FLOWERS
+  clearTile("FLWR_P");
+  (function(){const[ox,oy]=slotXY("FLWR_P");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=6; if((x&3)==0&&(y&3)==0)c=7; else if((x&3)==2&&(y&3)==2)c=5; else if(x===0||y===0)c=4; idxBuf[(oy+y)*Wpx+ox+x]=c; }
+    // pink flower center-ish
+    const pts=[[7,7],[8,8],[6,8],[8,6],[7,9]];
+    for(const[fx,fy]of pts) idxBuf[(oy+fy)*Wpx+ox+fx]=32;
+    idxBuf[(oy+7)*Wpx+ox+7]=33;})();
+  clearTile("FLWR_Y");
+  (function(){const[ox,oy]=slotXY("FLWR_Y");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=6; if((x&3)==0&&(y&3)==0)c=7; else if((x&3)==2&&(y&3)==2)c=5; else if(x===0||y===0)c=4; idxBuf[(oy+y)*Wpx+ox+x]=c; }
+    const pts=[[7,7],[6,8],[8,7],[7,6]]; for(const[fx,fy]of pts) idxBuf[(oy+fy)*Wpx+ox+fx]=33; idxBuf[(oy+7)*Wpx+ox+7]=30; })();
+
+  // FENCE
+  clearTile("FENCE_H"); (function(){const[ox,oy]=slotXY("FENCE_H");
+    for(let x=0;x<16;x++){ for(let y=0;y<16;y++){ let c=255; if(y===4||y===10){if(x>=1&&x<=14)c=25;} else if(y===5||y===9){if(x>=1&&x<=14)c=24;} else if((x===3||x===11)&&y>=2&&y<=13){c=24;} if(c!==255&&x>0&&y>0&&idxBuf[(oy+y)*Wpx+ox+x]===255&&false){} idxBuf[(oy+y)*Wpx+ox+x]=c; } }})();
+  clearTile("FENCE_V"); (function(){const[ox,oy]=slotXY("FENCE_V");
+    for(let x=0;x<16;x++)for(let y=0;y<16;y++){ let c=255; if(x===4||x===10){if(y>=1&&y<=14)c=25;} else if(x===5||x===9){if(y>=1&&y<=14)c=24;} else if((y===3||y===11)&&x>=2&&x<=13){c=24;} idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+
+  // SIGN
+  clearTile("SIGN"); (function(){const[ox,oy]=slotXY("SIGN");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=255; if(x>=4&&x<=11&&y>=2&&y<=11){ c=25; if(x===4||x===5)c=24; if(y>=4&&y<=8&&x>=6&&x<=9)c=30;} if(x>=6&&x<=9&&y>=12&&y<=15)c=24; idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+
+  // WALL (house wall, wood)
+  clearTile("WALL"); (function(){const[ox,oy]=slotXY("WALL");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=15; if((y%4)===0)c=14; if(x===0||x===15)c=14; if((x+y)%6===0)c=24; idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  // ROOF_L / ROOF_R (sloped)
+  clearTile("ROOF_L"); (function(){const[ox,oy]=slotXY("ROOF_L");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ const top=Math.floor(x*0.5); let c=255; if(y>=top){ c=28; if(y===top)c=29; if(y>=top+2&&x===0)c=27; } idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  clearTile("ROOF_R"); (function(){const[ox,oy]=slotXY("ROOF_R");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ const top=Math.floor((15-x)*0.5); let c=255; if(y>=top){ c=28; if(y===top)c=29; if(y>=top+2&&x===15)c=27; } idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  // DOOR
+  clearTile("DOOR"); (function(){const[ox,oy]=slotXY("DOOR");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=255; if(x>=3&&x<=12&&y>=2&&y<=15){ c=24; if(x===3||x===4||x===12)c=25; if(x===10&&y===9)c=30;} idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  // WINDOW
+  clearTile("WINDOW"); (function(){const[ox,oy]=slotXY("WINDOW");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=255; if(x>=3&&x<=12&&y>=3&&y<=12){ c=24; if(x>=4&&x<=11&&y>=4&&y<=11)c=20; if(x===7||x===8)c=18; if(y===7||y===8)c=18; } idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  // INTERIOR FLOOR
+  clearTile("IFLOOR"); (function(){const[ox,oy]=slotXY("IFLOOR");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=15; if((x%4)===0||(y%4)===0)c=14; if((x+y)%8===0)c=24; idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  // INTERIOR WALL
+  clearTile("IWALL"); (function(){const[ox,oy]=slotXY("IWALL");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c=25; if(y<3)c=24; if(y===3)c=15; if((x%6)===0)c=24; idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+
+  // LEDGES: down-facing ledge (grassy top, rock face, solid, hop-down only)
+  clearTile("LEDGE_DN"); (function(){const[ox,oy]=slotXY("LEDGE_DN");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c; if(y<5){ c=6; if((x&3)==0&&(y&3)==0)c=7; if(y===4)c=5; } else { c=22; if(y===5)c=23; if(y>=6&&((x+y)%4===0))c=21; if(y>=12)c=21; } idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  clearTile("LEDGE_UP"); (function(){const[ox,oy]=slotXY("LEDGE_UP");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c; if(y>10){ c=6; if((x&3)==0&&(y&3)==0)c=7; if(y===11)c=5;} else { c=22; if(y===10)c=21; if(((x+y)%4===0))c=23; } idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  clearTile("LEDGE_LT"); (function(){const[ox,oy]=slotXY("LEDGE_LT");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c; if(x<5){ c=6; if((x&3)==0&&(y&3)==0)c=7; if(x===4)c=5;} else { c=22; if(x===5)c=23; if(((x+y)%4===0))c=21;} idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  clearTile("LEDGE_RT"); (function(){const[ox,oy]=slotXY("LEDGE_RT");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c; if(x>10){ c=6; if((x&3)==0&&(y&3)==0)c=7; if(x===11)c=5;} else { c=22; if(x===10)c=21; if(((x+y)%4===0))c=23;} idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+
+  // BRIDGE
+  clearTile("BRIDGE_H"); (function(){const[ox,oy]=slotXY("BRIDGE_H");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c; if(y<3||y>12){c=255;} else { c=13; if((x%4)===0)c=24; if(y===3||y===12)c=24; if(x===0||x===15)c=24; } idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+  clearTile("BRIDGE_V"); (function(){const[ox,oy]=slotXY("BRIDGE_V");
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){ let c; if(x<3||x>12){c=255;} else { c=13; if((y%4)===0)c=24; if(x===3||x===12)c=24; if(y===0||y===15)c=24; } idxBuf[(oy+y)*Wpx+ox+x]=c; }})();
+
+  // convert index buffer -> canvas (palette mapping)
+  const cv=mkCanvas(Wpx,Hpx); const cx=cv.getContext("2d");
+  const img=cx.createImageData(Wpx,Hpx);
+  for(let i=0;i<idxBuf.length;i++){ const c=idxBuf[i]; const o=i*4;
+    if(c===255){ img.data[o+3]=0; }
+    else { const rgb=PAL[c]; // hex -> rgb
+      img.data[o]=parseInt(rgb.slice(1,3),16); img.data[o+1]=parseInt(rgb.slice(3,5),16); img.data[o+2]=parseInt(rgb.slice(5,7),16); img.data[o+3]=255; }
+  }
+  cx.putImageData(img,0,0);
+  return {canvas:cv,Wpx,Hpx,STAT,idxBuf};
+})();
+
+
+window.__S_ATLAS=1;
+// ─────────────────────────────────────────────────────────────────────────
+// WORLD GENERATION — graph of towns + route corridors, then detail noise
+// ─────────────────────────────────────────────────────────────────────────
+const WORLD = (function(){
+  const W=WORLD_W, H=WORLD_H;
+  const terr=new Uint8Array(W*H).fill(T_GRASS);
+  const solid=new Uint8Array(W*H);
+  const ledge=new Int8Array(W*H).fill(-1); // ledge hop direction: 0 down,1 up,2 left,3 right
+  // objects
+  const trees=[];      // {x,y} trunk tile (canopy at y-1)
+  const signs=[];      // {x,y,text}
+  const doors=[];      // {x,y,interior}
+  const flowers=[];    // {x,y,type}
+  const npcs=[];       // {x,y,dir,text,name,patrol}
+  const houses=[];     // {x,y,w,h,door}
+
+  function T(x,y){return y*W+x;}
+  function inB(x,y){return x>=0&&y>=0&&x<W&&y<H;}
+  function setT(x,y,v){ if(inB(x,y)) terr[T(x,y)]=v; }
+
+  // seeded RNG
+  let seed=0x1337;
+  const rng=mulberry32(seed);
+  function rint(a,b){return a+Math.floor(rng()*(b-a+1));}
+  function rbool(p){return rng()<p;}
+
+  // ---- carve a path corridor from (ax,ay) to (bx,by) with width & bends ----
+  function carvePath(ax,ay,bx,by,width){
+    // L-shaped with jitter, multi-segment
+    let x=ax,y=ay;
+    const segs=rint(2,4);
+    for(let s=0;s<=segs;s++){
+      let tx,ty;
+      if(s===segs){tx=bx;ty=by;}
+      else { if(Math.abs(bx-ax)>Math.abs(by-ay)){ tx=rint(ax,bx); ty=ay+rint(-12,12);} else {ty=rint(ay,by);tx=ax+rint(-12,12);} }
+      // step from (x,y) to (tx,ty)
+      const steps=Math.max(Math.abs(tx-x),Math.abs(ty-y));
+      for(let i=0;i<=steps;i++){
+        const px=Math.round(x+(tx-x)*i/steps);
+        const py=Math.round(y+(ty-y)*i/steps);
+        for(let dx=-width;dx<=width;dx++)for(let dy=-width;dy<=width;dy++){
+          const cx=px+dx, cy=py+dy;
+          if(inB(cx,cy)){ terr[T(cx,cy)]=T_PATH; }
+        }
+      }
+      x=tx;y=ty;
+    }
+  }
+
+  // ---- town nodes ----
+  const towns=[
+    {name:"PALLET VILLAGE",x:80,y:80},
+    {name:"ROUTE 1 SOUTH",x:300,y:160},
+    {name:"VIRIDIA TOWN",x:430,y:340},
+    {name:"PEWTER CROSS",x:120,y:400},
+  ];
+  // connect: ring + a cross
+  const links=[[0,1],[1,2],[2,3],[3,0],[0,2]];
+  for(const[a,b]of links){
+    carvePath(towns[a].x,towns[a].y,towns[b].x,towns[b].y,rint(2,3));
+  }
+
+  // ---- a river crossing route 0-1, with a bridge ----
+  (function(){
+    const rx=rint(180,220), ry0=40, ry1=260;
+    for(let y=ry0;y<=ry1;y++){
+      const wob=Math.round(Math.sin(y*0.07)*6);
+      for(let dx=-2;dx<=2;dx++){ const x=rx+wob+dx; if(inB(x,y)) terr[T(x,y)]=T_WATER; }
+    }
+    // bridge where it crosses a path: find path tiles near river
+    for(let y=ry0;y<=ry1;y++){
+      const wob=Math.round(Math.sin(y*0.07)*6);
+      const cx=rx+wob;
+      if(terr[T(cx,y)]===T_PATH){
+        for(let dx=-2;dx<=2;dx++){ if(inB(cx+dx,y)) terr[T(cx+dx,y)]=T_PATH; } // keep path
+        // mark a bridge object (handled at render by checking water+path adjacency)
+      }
+    }
+  })();
+
+  // ---- ponds near towns ----
+  towns.forEach((t,ti)=>{
+    if(ti%2===0){
+      const px=t.x+rint(8,16), py=t.y+rint(8,16);
+      const rw=rint(4,7), rh=rint(3,5);
+      for(let y=-rh;y<=rh;y++)for(let x=-rw;x<=rw;x++){
+        const d=(x*x)/(rw*rw)+(y*y)/(rh*rh);
+        if(d<1){ if(inB(px+x,py+y)) terr[T(px+x,py+y)]=T_WATER; }
+      }
+    }
+  });
+
+  // ---- cliffs / ledge strips along part of route 2-3 ----
+  (function(){
+    const lx=rint(200,260), ly=260;
+    for(let x=0;x<40;x++){
+      const cx=lx+x, cy=ly;
+      if(inB(cx,cy)&&terr[T(cx,cy)]===T_GRASS){
+        terr[T(cx,cy)]=T_LEDGE_DN; ledge[T(cx,cy)]=0;
+        solid[T(cx,cy)]=1;
+      }
+    }
+  })();
+
+  // ---- sand patches (beach near water) ----
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(terr[T(x,y)]===T_GRASS){
+      let nearWater=false;
+      for(let dy=-1;dy<=1&&!nearWater;dy++)for(let dx=-1;dx<=1;dx++){
+        if(inB(x+dx,y+dy)&&terr[T(x+dx,y+dy)]===T_WATER) nearWater=true;
+      }
+      if(nearWater && rbool(0.25)) terr[T(x,y)]=T_SAND;
+    }
+  }
+
+  // ---- build towns: clear, path grid, houses, fences, signs ----
+  function buildTown(t){
+    const cx=t.x, cy=t.y;
+    // clear a 18x14 plaza to grass
+    for(let y=-7;y<=7;y++)for(let x=-9;x<=9;x++){
+      const X=cx+x, Y=cy+y;
+      if(inB(X,Y)){ terr[T(X,Y)]=T_GRASS; }
+    }
+    // cross path grid
+    for(let x=-8;x<=8;x++){ terr[T(cx+x,cy)]=T_PATH; terr[T(cx+x,cy-3)]=T_PATH; }
+    for(let y=-6;y<=6;y++){ terr[T(cx,cy+y)]=T_PATH; terr[T(cx+5,cy+y)]=T_PATH; terr[T(cx-5,cy+y)]=T_PATH; }
+    // place houses on lots
+    const lots=[[-8,-5],[6,-5],[-8,3],[6,3]];
+    lots.forEach((lot,li)=>{
+      const hx=cx+lot[0], hy=cy+lot[1];
+      houses.push({x:hx,y:hy,w:3,h:3,door:{x:hx+1,y:hy+2}});
+      // mark solid for walls + roof
+      for(let yy=0;yy<3;yy++)for(let xx=0;xx<3;xx++){
+        if(inB(hx+xx,hy+yy)){ solid[T(hx+xx,hy+yy)]=1; }
+      }
+      // door
+      if(inB(hx+1,hy+2)){ solid[T(hx+1,hy+2)]=0; doors.push({x:hx+1,y:hy+2,interior:li}); }
+    });
+    // signs
+    signs.push({x:cx-2,y:cy+2,text:t.name+" WELCOME. MIND THE LEDGES ON ROUTE 1."});
+    signs.push({x:cx+7,y:cy-4,text:"TALL GRASS HIDES POKEMON. APPROACH QUIETLY."});
+  }
+  towns.forEach(buildTown);
+
+  // ---- compute solidity for water, cliffs ----
+  for(let i=0;i<W*H;i++){
+    const t=terr[i];
+    if(t===T_WATER||t===T_LEDGE_DN||t===T_LEDGE_UP||t===T_LEDGE_LT||t===T_LEDGE_RT) solid[i]=1;
+    else if(t===T_PATH||t===T_SAND||t===T_GRASS||t===T_TALLGRASS) solid[i]=0;
+  }
+
+  // ---- tall grass clumps along routes (off-path) ----
+  (function(){
+    const rng2=mulberry32(0xC0FFEE);
+    for(let i=0;i<220;i++){
+      const x=Math.floor(rng2()*W), y=Math.floor(rng2()*H);
+      if(terr[T(x,y)]!==T_GRASS) continue;
+      // must be near a path
+      let nearPath=false;
+      for(let dy=-3;dy<=3&&!nearPath;dy++)for(let dx=-3;dx<=3;dx++){ if(inB(x+dx,y+dy)&&terr[T(x+dx,y+dy)]===T_PATH) nearPath=true; }
+      if(!nearPath) continue;
+      // clump
+      const r=Math.floor(rng2()*3)+2;
+      for(let yy=-r;yy<=r;yy++)for(let xx=-r;xx<=r;xx++){
+        const d=xx*xx+yy*yy;
+        if(d<=r*r && rng2()<0.6){
+          const X=x+xx,Y=y+yy;
+          if(inB(X,Y)&&terr[T(X,Y)]===T_GRASS) terr[T(X,Y)]=T_TALLGRASS;
+        }
+      }
+    }
+  })();
+
+  // ---- tree clumps bordering paths/towns (forest edge) ----
+  (function(){
+    const rng3=mulberry32(0xBEEF77);
+    for(let i=0;i<W*H;i++){
+      const x=i%W, y=Math.floor(i/W);
+      if(terr[i]!==T_GRASS) continue;
+      let nearPath=false;
+      for(let dy=-2;dy<=2&&!nearPath;dy++)for(let dx=-2;dx<=2;dx++){ if(inB(x+dx,y+dy)){ const tt=terr[T(x+dx,y+dy)]; if(tt===T_PATH||tt===T_SAND) nearPath=true; } }
+      if(!nearPath) continue;
+      if(rng3()<0.10){
+        // place tree (trunk at x,y; canopy at x,y-1) — ensure space
+        if(inB(x,y-1)&&solid[T(x,y)]===0&&solid[T(x,y-1)]===0){
+          trees.push({x,y}); solid[T(x,y)]=1; solid[T(x,y-1)]=1;
+        }
+      }
+    }
+    // denser forest clumps away from paths
+    for(let c=0;c<60;c++){
+      const x=Math.floor(rng3()*W), y=Math.floor(rng3()*H);
+      for(let k=0;k<rint(4,9);k++){
+        const X=x+rint(-6,6), Y=y+rint(-6,6);
+        if(inB(X,Y)&&inB(X,Y-1)&&terr[T(X,Y)]===T_GRASS&&solid[T(X,Y)]===0&&solid[T(X,Y-1)]===0){
+          trees.push({x:X,y:Y}); solid[T(X,Y)]=1; solid[T(X,Y-1)]=1;
+        }
+      }
+    }
+  })();
+
+  // ---- flowers scatter ----
+  (function(){
+    const rng4=mulberry32(0xF10BEE);
+    for(let i=0;i<900;i++){
+      const x=Math.floor(rng4()*W), y=Math.floor(rng4()*H);
+      if(terr[T(x,y)]===T_GRASS&&solid[T(x,y)]===0){
+        flowers.push({x,y,type:rng4()<0.5?"FLWR_P":"FLWR_Y"});
+      }
+    }
+  })();
+
+  // ---- NPCs ----
+  npcs.push({x:towns[0].x+3,y:towns[0].y+2,dir:0,text:"PROF: POKEMON live all over. Walk slowly near them and they show in your JOURNAL.",name:"PROF",patrol:[]});
+  npcs.push({x:towns[1].x+2,y:towns[1].y-2,dir:2,text:"TRAINER: Dusk brings EEVEE out. Try route 1 at sundown.",name:"TRAINER",patrol:[[0,0],[0,2],[2,2],[2,0]]});
+  npcs.push({x:towns[2].x-2,y:towns[2].y+1,dir:3,text:"KEEPER: LEDGES only go one way. Hop down, never up.",name:"KEEPER",patrol:[]});
+  npcs.push({x:towns[3].x+2,y:towns[3].y+2,dir:0,text:"FISHER: MAGIKARP splash by the pond. Harmless, but watch for PSYDUCK.",name:"FISHER",patrol:[]});
+  npcs.forEach(n=>{ if(inB(n.x,n.y)) solid[T(n.x,n.y)]=0; });
+
+  return {W,H,terr,solid,ledge,trees,signs,doors,flowers,npcs,towns,houses,seed};
+})();
+
+
+window.__S_WORLD=1;
+// ─────────────────────────────────────────────────────────────────────────
+// PALETTE + TIME OF DAY  (index buffer -> RGB via swappable palette)
+// ─────────────────────────────────────────────────────────────────────────
+const basePalRGB = PAL.map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
+let activePalRGB = basePalRGB; // array of [r,g,b]
+
+function mix(a,b,t){return Math.round(a+(b-a)*t);}
+function mixPal(base, fn){ return base.map(c=>fn(c)); }
+// time-of-day remap: shift greens toward amber at dusk, toward blue/low-contrast at night
+const TOD = {
+  morning:{ mult:[1.06,1.04,0.92], add:[8,6,0] },
+  day:    { mult:[1,1,1], add:[0,0,0] },
+  dusk:   { mult:[1.05,0.86,0.66], add:[14,-4,-12] },
+  night:  { mult:[0.62,0.74,1.06], add:[10,14,30] },
+};
+function applyTod(state){
+  const cfg=TOD[state]||TOD.day;
+  activePalRGB = basePalRGB.map(c=>{
+    const r=Math.max(0,Math.min(255,c[0]*cfg.mult[0]+cfg.add[0]));
+    const g=Math.max(0,Math.min(255,c[1]*cfg.mult[1]+cfg.add[1]));
+    const b=Math.max(0,Math.min(255,c[2]*cfg.mult[2]+cfg.add[2]));
+    return [mix(0,r,1),mix(0,g,1),mix(0,b,1)];
+  });
+}
+applyTod("day");
+
+// ─────────────────────────────────────────────────────────────────────────
+// INDEX FRAME BUFFER + WORLD CANVAS
+// ─────────────────────────────────────────────────────────────────────────
+const FRAME = new Uint8Array(VW*VH);
+const worldCv = mkCanvas(VW,VH); const worldCx = worldCv.getContext("2d");
+const worldImg = worldCx.createImageData(VW,VH);
+const screen = document.getElementById("game"); const sctx=screen.getContext("2d");
+sctx.imageSmoothingEnabled=false;
+
+// ─────────────────────────────────────────────────────────────────────────
+// CHUNK CACHE (ground terrain index buffers, 32 tiles per chunk)
+// ─────────────────────────────────────────────────────────────────────────
+const CHUNK=32, CHUNKPX=CHUNK*TS;
+const chunkCache=new Map();
+function neighSame(x,y,v){
+  const t=WORLD.terr; let m=0;
+  const N=y>0&&t[(y-1)*WORLD_W+x]===v, S=y<WORLD_H-1&&t[(y+1)*WORLD_W+x]===v;
+  const W=x>0&&t[y*WORLD_W+x-1]===v, E=x<WORLD_W-1&&t[y*WORLD_W+x+1]===v;
+  let msk=0; if(N)msk|=1; if(E)msk|=2; if(S)msk|=4; if(W)msk|=8;
+  // corners only if adjacent sides same
+  const NE=(N&&E)&&(y>0&&x<WORLD_W-1&&t[(y-1)*WORLD_W+x+1]===v);
+  const SE=(S&&E)&&(y<WORLD_H-1&&x<WORLD_W-1&&t[(y+1)*WORLD_W+x+1]===v);
+  const SW=(S&&W)&&(y<WORLD_H-1&&x>0&&t[(y+1)*WORLD_W+x-1]===v);
+  const NW=(N&&W)&&(y>0&&x>0&&t[(y-1)*WORLD_W+x-1]===v);
+  if(NE)msk|=16; if(SE)msk|=32; if(SW)msk|=64; if(NW)msk|=128;
+  return msk;
+}
+// copy a 16x16 atlas tile (by name) into dest index buffer at (dx,dy) with transparency
+function blitTile(slotRow, slotCol, dst, dstW, dx, dy, transparent){
+  const sx=slotCol*16, sy=slotRow*16;
+  const A=TILEATLAS.idxBuf, AW=TILEATLAS.Wpx;
+  for(let yy=0;yy<16;yy++){
+    const so=(sy+yy)*AW+sx, dO=(dy+yy)*dstW+dx;
+    for(let xx=0;xx<16;xx++){
+      const v=A[so+xx];
+      if(v===255){ if(transparent) continue; }
+      dst[dO+xx]=v;
+    }
+  }
+}
+// overlay terrain -> (row in atlas = OVERLAYS.indexOf(t), col = REDUCE256[mask])
+function overlayRow(t){ return OVERLAYS.indexOf(t); }
+function staticRow(name){ const i=TILEATLAS.STAT[name]; return OVERLAYS.length+Math.floor(i/AT_COLS); }
+function staticCol(name){ const i=TILEATLAS.STAT[name]; return i%AT_COLS; }
+
+function renderChunk(cx,cy){
+  const key=cx+","+cy;
+  let buf=chunkCache.get(key);
+  if(buf) return buf;
+  buf=new Uint8Array(CHUNKPX*CHUNKPX);
+  const t=WORLD.terr;
+  for(let ty=0;ty<CHUNK;ty++)for(let tx=0;tx<CHUNK;tx++){
+    const wx=cx*CHUNK+tx, wy=cy*CHUNK+ty;
+    if(wx<0||wy<0||wx>=WORLD_W||wy>=WORLD_H){ // out of world -> void grass
+      const row=staticRow("GRASS"), col=staticCol("GRASS");
+      blitTile(row,col,buf,CHUNKPX,tx*16,ty*16,false); continue;
+    }
+    const v=t[wy*WORLD_W+wx];
+    const dx=tx*16, dy=ty*16;
+    if(v===T_GRASS){ blitTile(staticRow("GRASS"),staticCol("GRASS"),buf,CHUNKPX,dx,dy,false); }
+    else if(v===T_PATH){
+      // bridge if crossing water
+      const N=wy>0&&t[(wy-1)*WORLD_W+wx]===T_WATER, S=wy<WORLD_H-1&&t[(wy+1)*WORLD_W+wx]===T_WATER;
+      const Wt=wx>0&&t[wy*WORLD_W+wx-1]===T_WATER, E=wx<WORLD_W-1&&t[wy*WORLD_W+wx+1]===T_WATER;
+      if(N&&S) blitTile(staticRow("BRIDGE_V"),staticCol("BRIDGE_V"),buf,CHUNKPX,dx,dy,true);
+      else if(Wt&&E) blitTile(staticRow("BRIDGE_H"),staticCol("BRIDGE_H"),buf,CHUNKPX,dx,dy,true);
+      else { const m=neighSame(wx,wy,T_PATH); blitTile(overlayRow(T_PATH),REDUCE256[m],buf,CHUNKPX,dx,dy,false); }
+    }
+    else if(v===T_WATER){ const m=neighSame(wx,wy,T_WATER); blitTile(overlayRow(T_WATER),REDUCE256[m],buf,CHUNKPX,dx,dy,false); }
+    else if(v===T_SAND){ const m=neighSame(wx,wy,T_SAND); blitTile(overlayRow(T_SAND),REDUCE256[m],buf,CHUNKPX,dx,dy,false); }
+    else if(v===T_TALLGRASS){ const m=neighSame(wx,wy,T_TALLGRASS); blitTile(overlayRow(T_TALLGRASS),REDUCE256[m],buf,CHUNKPX,dx,dy,false); }
+    else if(v===T_LEDGE_DN){ blitTile(staticRow("LEDGE_DN"),staticCol("LEDGE_DN"),buf,CHUNKPX,dx,dy,false); }
+    else if(v===T_LEDGE_UP){ blitTile(staticRow("LEDGE_UP"),staticCol("LEDGE_UP"),buf,CHUNKPX,dx,dy,false); }
+    else if(v===T_LEDGE_LT){ blitTile(staticRow("LEDGE_LT"),staticCol("LEDGE_LT"),buf,CHUNKPX,dx,dy,false); }
+    else if(v===T_LEDGE_RT){ blitTile(staticRow("LEDGE_RT"),staticCol("LEDGE_RT"),buf,CHUNKPX,dx,dy,false); }
+    else { blitTile(staticRow("GRASS"),staticCol("GRASS"),buf,CHUNKPX,dx,dy,false); }
+  }
+  chunkCache.set(key,buf);
+  return buf;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PLAYER / NPC SPRITES (index-based, 16x24) — procedurally generated trainer
+// ─────────────────────────────────────────────────────────────────────────
+function makeTrainer(palette){
+  // palette: {hat,hatHi,hair,skin,skinSh,shirt,shirtSh,pants,pantsSh,shoe}
+  const P=palette;
+  function blank(){ return new Uint8Array(16*24).fill(255); }
+  function S(d,x,y,v){ if(x<0||y<0||x>=16||y>=24)return; d[y*16+x]=v; }
+  function rect(d,x,y,w,h,v){ for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)S(d,x+xx,y+yy,v); }
+  function outlineH(d,y,x0,x1){ for(let x=x0;x<=x1;x++){S(d,x,y,0);S(d,x,y+ (0),0);} }
+  function frame(dir,step){
+    // step: 0 idle,1 walkL,2 walkR (leg offset)
+    const d=blank();
+    const cx=8;
+    const lo = step===1?1: (step===2?-1:0); // leg lift offset
+    // ---- head + hat ----
+    // hat (rows 1-3)
+    rect(d,cx-4,1,8,1,0);              // hat top outline
+    rect(d,cx-3,2,6,2,P.hat);
+    rect(d,cx-3,2,1,2,P.hatHi);        // hat highlight
+    rect(d,cx-3,4,6,1,0);             // hat brim outline
+    rect(d,cx-4,4,8,1,P.hat);         // brim
+    rect(d,cx-2,3,1,1,P.hatHi);
+    // face (rows 5-9)
+    rect(d,cx-3,5,6,5,P.skin);
+    rect(d,cx-3,5,6,1,P.skinSh);       // forehead shadow under brim
+    rect(d,cx-3,5,1,5,0); rect(d,cx+2,5,1,5,0); // face side outline
+    rect(d,cx-3,9,6,1,0);             // chin outline
+    // hair sides
+    rect(d,cx-4,5,1,3,P.hair); rect(d,cx+3,5,1,3,P.hair);
+    // eyes depend on dir
+    if(dir===0){ S(d,cx-2,7,0); S(d,cx+1,7,0); }       // down: eyes
+    else if(dir===1){ rect(d,cx-2,7,2,1,0); rect(d,cx+1,7,2,1,0); } // up: hair back (no eyes) -> show hair
+    else if(dir===2){ S(d,cx-2,7,0); }                 // left
+    else { S(d,cx+1,7,0); }                            // right
+    if(dir===1){ rect(d,cx-3,5,6,5,P.hair); }          // facing away: hair covers face
+    // ---- body / shirt (rows 10-16) ----
+    rect(d,cx-4,10,8,7,P.shirt);
+    rect(d,cx-4,10,1,7,0); rect(d,cx+3,10,1,7,0); // body side outline
+    rect(d,cx-4,16,8,1,0);                        // belt outline
+    rect(d,cx-3,11,1,4,P.shirtSh);                // shirt shadow stripe
+    // arms
+    rect(d,cx-5,11,1,4,P.shirt); rect(d,cx+4,11,1,4,P.shirt); // arms out
+    rect(d,cx-5,15,1,1,P.skin); rect(d,cx+4,15,1,1,P.skin);   // hands
+    // collar
+    rect(d,cx-1,10,2,1,P.shirtSh);
+    // ---- legs (rows 17-22) ----
+    const lLeg=cx-3, rLeg=cx;
+    rect(d,lLeg,17,3,5,P.pants);
+    rect(d,rLeg,17,3,5,P.pants);
+    rect(d,lLeg,17,3,1,P.pantsSh); rect(d,rLeg,17,3,1,P.pantsSh);
+    // walk: shift one leg
+    if(step===1){ for(let yy=0;yy<5;yy++){ S(d,lLeg,17+yy,255); } rect(d,lLeg-1,17,3,5,P.pants); rect(d,lLeg-1,21,3,1,0); }
+    if(step===2){ for(let yy=0;yy<5;yy++){ S(d,rLeg+2,17+yy,255); } rect(d,rLeg+1,17,3,5,P.pants); rect(d,rLeg+1,21,3,1,0); }
+    rect(d,lLeg,21,3,1,0); rect(d,rLeg,21,3,1,0);
+    // shoes
+    rect(d,lLeg,22,3,2,P.shoe); rect(d,rLeg,22,3,2,P.shoe);
+    return d;
+  }
+  return { down:[frame(0,0),frame(0,1),frame(0,2)], up:[frame(1,0),frame(1,1),frame(1,2)],
+           left:[frame(2,0),frame(2,1),frame(2,2)], right:[frame(3,0),frame(3,1),frame(3,2)] };
+}
+const PLAYER_SPRITES = makeTrainer({
+  hat:27,hatHi:29,hair:25,skin:30,skinSh:14,shirt:20,shirtSh:19,pants:18,pantsSh:21,shoe:0,
+});
+// NPC variants
+const NPC_SPRITES = [
+  makeTrainer({hat:28,hatHi:29,hair:24,skin:30,skinSh:14,shirt:32,shirtSh:27,pants:25,pantsSh:24,shoe:0}),
+  makeTrainer({hat:18,hatHi:20,hair:24,skin:30,skinSh:14,shirt:33,shirtSh:27,pants:13,pantsSh:12,shoe:0}),
+  makeTrainer({hat:22,hatHi:23,hair:25,skin:30,skinSh:14,shirt:6,shirtSh:5,pants:21,pantsSh:22,shoe:0}),
+  makeTrainer({hat:27,hatHi:33,hair:24,skin:30,skinSh:14,shirt:19,shirtSh:18,pants:24,pantsSh:25,shoe:0}),
+];
+const SPR_W=16, SPR_H=24;
+function blitIndexSprite(d, dstW, dx, dy, data, w, h){
+  for(let yy=0;yy<h;yy++){
+    if(dy+yy<0||dy+yy>=VH) continue;
+    const sO=yy*w, dO=(dy+yy)*dstW+dx;
+    for(let xx=0;xx<w;xx++){
+      if(dx+xx<0||dx+xx>=VW) continue;
+      const v=data[sO+xx]; if(v===255) continue;
+      FRAME[dO+xx]=v;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CAMERA + PLAYER STATE
+// ─────────────────────────────────────────────────────────────────────────
+const player = { tx:WORLD.towns[0].x, ty:WORLD.towns[0].y+3, dir:0, // 0down 1up 2left 3right
+  px:0, py:0, // pixel pos (top-left of sprite's tile? we use feet tile)
+  moving:false, stepT:0, stepDur:14, run:false, animT:0 };
+player.px = player.tx*TS; player.py = player.ty*TS;
+const cam = { x:0, y:0, free:false };
+function clampCam(){
+  const maxX = WORLD_W*TS - VW, maxY = WORLD_H*TS - VH;
+  cam.x = Math.max(0, Math.min(maxX, cam.x));
+  cam.y = Math.max(0, Math.min(maxY, cam.y));
+  cam.x = Math.round(cam.x); cam.y = Math.round(cam.y);
+}
+function camFollow(){ cam.x = player.px + SPR_W/2 - VW/2; cam.y = player.py + SPR_H - VH/2 - 8; clampCam(); }
+
+// ─────────────────────────────────────────────────────────────────────────
+// INPUT (sampled + buffered, read in fixed-step)
+// ─────────────────────────────────────────────────────────────────────────
+const keys = Object.create(null);
+const pressedThisFrame = Object.create(null);
+window.addEventListener("keydown",e=>{
+  const k=e.key.toLowerCase();
+  if(["arrowup","arrowdown","arrowleft","arrowright"," ","z","x","enter","`","escape","j","k"].includes(k)){ e.preventDefault(); }
+  if(!keys[k]) pressedThisFrame[k]=true;
+  keys[k]=true;
+  // debug toggles
+  if(k==="`") DEBUG.on=!DEBUG.on;
+});
+window.addEventListener("keyup",e=>{ keys[e.key.toLowerCase()]=false; });
+function consumePress(k){ if(pressedThisFrame[k]){ pressedThisFrame[k]=false; return true;} return false; }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SOLIDITY / MOVEMENT HELPERS
+// ─────────────────────────────────────────────────────────────────────────
+function solidAt(tx,ty){ if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return true; return WORLD.solid[ty*WORLD_W+tx]===1; }
+const DIR_DX=[0,0,-1,1], DIR_DY=[1,-1,0,0];
+
+// ─────────────────────────────────────────────────────────────────────────
+// TEXT RENDERING (bitmap font -> index buffer, never fillText)
+// ─────────────────────────────────────────────────────────────────────────
+// Build per-glyph 5x7 bitmaps by reading the FONT atlas once.
+const FONTBITS = (function(){
+  const cx=FONT.atlas.getContext("2d"); const img=cx.getImageData(0,0,FONT.atlas.width,FONT.atlas.height).data;
+  const chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!:;?'\"-+/()#&=><*_[]";
+  const map={};
+  for(let i=0;i<chars.length;i++){
+    const bits=new Uint8Array(5*7);
+    for(let y=0;y<7;y++)for(let x=0;x<5;x++){
+      const a=((y)*FONT.atlas.width + i*FONT.cw + x)*4;
+      if(img[a+3]>128) bits[y*5+x]=1;
+    }
+    map[chars.charCodeAt(i)]=bits;
+  }
+  return map;
+})();
+const TW=6, TH=8; // char advance (5x7 + spacing)
+function drawText(str, x, y, col, shadow){
+  shadow = shadow===undefined?0:shadow;
+  let cx=x;
+  for(let i=0;i<str.length;i++){
+    const ch=str.charCodeAt(i);
+    let bits=FONTBITS[ch];
+    if(!bits){ bits=FONTBITS["?".charCodeAt(0)]; }
+    if(!bits){ cx+=TW; continue; }
+    for(let yy=0;yy<7;yy++)for(let xx=0;xx<5;xx++){
+      if(bits[yy*5+xx]){
+        const px=cx+xx, py=y+yy;
+        if(shadow>=0 && px+1<VW && py+1<VH) FRAME[(py+1)*VW+px+1]=shadow;
+        if(px>=0&&px<VW&&py>=0&&py<VH) FRAME[py*VW+px]=col;
+      }
+    }
+    cx+=TW;
+  }
+  return cx;
+}
+function textW(str){ return str.length*TW; }
+
+// ─────────────────────────────────────────────────────────────────────────
+// DEBUG OVERLAY
+// ─────────────────────────────────────────────────────────────────────────
+const DEBUG = { on:false, frameTimes:new Array(120).fill(16.67), ftI:0, redraws:0, scrub:0.5,
+  mute:[false,false,false,false], freeCam:false, showOver:false };
+function drawDebug(overlay){
+  if(!DEBUG.on) return;
+  // frame time graph (top-left)
+  const gx=2,gy=2,gw=80,gh=20;
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++) FRAME[(gy+y)*VW+gx+x]=0;
+  for(let x=0;x<gw;x++){
+    const t=DEBUG.frameTimes[(DEBUG.ftI+x)%DEBUG.frameTimes.length];
+    const h=Math.min(gh,Math.round(t*gh/33));
+    for(let y=0;y<h;y++) FRAME[(gy+gh-1-y)*VW+gx+x]= (t>20?32:7);
+  }
+  // 1% low
+  let mx=0; for(const t of DEBUG.frameTimes) mx=Math.max(mx,t);
+  drawText("FT "+(DEBUG.frameTimes[DEBUG.ftI].toFixed(1))+" 1%LO "+mx.toFixed(1), gx, gy+gh+1, 30, 0);
+  drawText("CHUNKS "+DEBUG.redraws, gx, gy+gh+9, 30, 0);
+  drawText("TILE "+player.tx+","+player.ty, gx, gy+gh+17, 30, 0);
+  const todName=["MORNING","DAY","DUSK","NIGHT"][todIndex];
+  drawText("TOD "+todName+" "+DEBUG.scrub.toFixed(2), gx, gy+gh+25, 30, 0);
+  drawText("MON "+creatures.length+" SP "+creaturesSpecies(), gx, gy+gh+33, 30, 0);
+  drawText("MUTE "+DEBUG.mute.map(m=>m?"x":".").join(""), gx, gy+gh+41, 30, 0);
+  drawText("[`]DBG [F]FREECAM [R]RESEED", gx, gy+gh+49, 30, 0);
+  drawText("[1-4]MUTE", gx, gy+gh+57, 30, 0);
+}
+function creaturesSpecies(){ let s={}; for(const c of creatures){ s[c.name]=1; } return Object.keys(s).length; }
+
+// ─────────────────────────────────────────────────────────────────────────
+// TIME OF DAY state
+// ─────────────────────────────────────────────────────────────────────────
+const DAY_MS=12*60*1000; // 12 real minutes
+let todClock=0.30; // 0..1
+let todIndex=1; // 0 morn 1 day 2 dusk 3 night
+function updateTod(){
+  // todClock advanced in step
+  const f=todClock;
+  let idx;
+  if(f<0.20) idx=0; else if(f<0.55) idx=1; else if(f<0.70) idx=2; else idx=3;
+  // blend toward neighbour palettes for smoothness
+  todIndex=idx;
+  // scrubber override when debug
+  const useF = DEBUG.on? DEBUG.scrub : f;
+  // pick base state by useF
+  let st;
+  if(useF<0.20) st="morning"; else if(useF<0.55) st="day"; else if(useF<0.70) st="dusk"; else st="night";
+  applyTod(st);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CREATURES (real POKEMON) — roam, flee/approach, tall-grass occlusion
+// ─────────────────────────────────────────────────────────────────────────
+const creatures=[]; // {name,meta, x,y (tile), hx,hy (home), dir, moving, stepT, dur, beh, fleeT, sprite, seen}
+let creaturesReady=false;
+function pickSpawnTile(prefs){
+  // find a tile matching terrain preference near towns/route
+  const W=WORLD_W,H=WORLD_H, t=WORLD.terr;
+  for(let tries=0;tries<400;tries++){
+    const x=Math.floor(Math.random()*W), y=Math.floor(Math.random()*H);
+    const v=t[y*W+x];
+    if(WORLD.solid[y*W+x]) continue;
+    let ok=false;
+    if(prefs.terrain==="water" && (v===T_WATER)) ok=true;
+    if(prefs.terrain==="grass" && (v===T_GRASS||v===T_TALLGRASS)) ok=true;
+    if(prefs.terrain==="sand" && v===T_SAND) ok=true;
+    if(prefs.terrain==="cliff" && (v===T_LEDGE_DN||v===T_LEDGE_UP||v===T_LEDGE_LT||v===T_LEDGE_RT||v===T_GRASS)) ok=true;
+    if(prefs.terrain==="town" && v===T_PATH) ok=true;
+    if(ok && v!==T_WATER) return [x,y]; // water creatures: allow water tile but not walkable; we still place on water edge
+    if(ok && prefs.terrain==="water") return [x,y];
+  }
+  return null;
+}
+function spawnCreatures(list){
+  // list = POKEMON.list
+  const byName={}; list.forEach(p=>byName[p.name]=p);
+  Object.keys(POKEMON.META).forEach(nm=>{
+    const meta=POKEMON.META[nm]; const p=byName[nm]; if(!p) return;
+    const count = meta.rarity<0.2?3:2;
+    for(let i=0;i<count;i++){
+      const sp=pickSpawnTile(meta);
+      if(!sp) continue;
+      creatures.push({
+        name:nm, meta, p,
+        tx:sp[0], ty:sp[1], hx:sp[0], hy:sp[1],
+        px:sp[0]*TS, py:sp[1]*TS,
+        dir:Math.floor(Math.random()*4), moving:false, stepT:0,
+        dur:20+Math.floor(Math.random()*30),
+        beh:meta.beh, fleeT:0, idleT:Math.floor(Math.random()*60),
+        seen:false, farSeen:false,
+      });
+    }
+  });
+  creaturesReady=true;
+}
+
+function updateCreature(c, dt){
+  if(c.meta.terrain==="water"){ // water creatures just bob in place
+    c.px=c.tx*TS; c.py=c.ty*TS; return;
+  }
+  if(c.moving){
+    c.stepT+=dt;
+    if(c.stepT>=c.dur){
+      c.moving=false; c.px=c.tx*TS; c.py=c.ty*TS; c.idleT=20+Math.floor(Math.random()*40);
+    } else {
+      const f=c.stepT/c.dur;
+      c.px=(c.tx - DIR_DX[c.dir])*TS + DIR_DX[c.dir]*TS*f;
+      c.py=(c.ty - DIR_DY[c.dir])*TS + DIR_DY[c.dir]*TS*f;
+    }
+    return;
+  }
+  // idle
+  c.idleT-=dt;
+  // behavior relative to player
+  const ddx=c.tx-player.tx, ddy=c.ty-player.ty; const dist=Math.abs(ddx)+Math.abs(ddy);
+  if(c.beh==="flee" && dist<5 && c.idleT<=0){
+    // step away from player
+    let nd;
+    if(Math.abs(ddx)>Math.abs(ddy)) nd = ddx>0?3:2; else nd = ddy>0?0:1;
+    tryStep(c,nd);
+    return;
+  }
+  if(c.beh==="approach" && dist>2 && dist<8 && c.idleT<=0){
+    let nd;
+    if(Math.abs(ddx)>Math.abs(ddy)) nd = ddx>0?2:3; else nd = ddy>0?1:0;
+    tryStep(c,nd);
+    return;
+  }
+  if(c.idleT<=0){
+    // wander within home range (radius 6)
+    const nd=Math.floor(Math.random()*4);
+    tryStep(c,nd);
+  }
+}
+function tryStep(c,nd){
+  const nx=c.tx+DIR_DX[nd], ny=c.ty+DIR_DY[nd];
+  if(Math.abs(nx-c.hx)>6||Math.abs(ny-c.hy)>6){ c.idleT=30; return; }
+  if(nx<0||ny<0||nx>=WORLD_W||ny>=WORLD_H) return;
+  const v=WORLD.terr[ny*WORLD_W+nx];
+  if(v===T_WATER||v===T_LEDGE_DN||v===T_LEDGE_UP||v===T_LEDGE_LT||v===T_LEDGE_RT) return;
+  if(WORLD.solid[ny*WORLD_W+nx]) return;
+  c.dir=nd; c.tx=nx; c.ty=ny; c.moving=true; c.stepT=0; c.dur=18+Math.floor(Math.random()*16);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// FIELD JOURNAL (Pokedex-style)
+// ─────────────────────────────────────────────────────────────────────────
+const journal={ open:false, seen:{}, cursor:0, page:0, list:[] };
+function buildJournalList(){ journal.list=Object.keys(POKEMON.META); }
+function observeCreature(c){
+  if(c.seen) return;
+  const d=Math.abs(c.tx-player.tx)+Math.abs(c.ty-player.ty);
+  const need = c.meta.rarity<0.2?4:(c.meta.rarity<0.28?3:2);
+  if(d<=need && !player.moving){
+    c.seen=true; c.farSeen=true; journal.seen[c.name]=true;
+    sfx("journal");
+    toast(c.meta.name+" logged in JOURNAL!");
+  }
+  if(d<=10) c.farSeen=true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AUDIO — WebAudio 4-channel chiptune (2 pulse, 1 triangle, 1 noise) + SFX
+// ─────────────────────────────────────────────────────────────────────────
+const AUDIO = (function(){
+  let ctx=null, master=null, noiseBuf=null;
+  const chans=[null,null,null,null]; // pulse,pulse,triangle,noise gain nodes for mute
+  function init(){
+    if(ctx) return;
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    master=ctx.createGain(); master.gain.value=0.25; master.connect(ctx.destination);
+    noiseBuf=ctx.createBuffer(1,ctx.sampleRate*0.4,ctx.sampleRate);
+    const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    for(let i=0;i<4;i++){ const g=ctx.createGain(); g.gain.value=0.18; g.connect(master); chans[i]=g; }
+  }
+  // note freq
+  const A4=440; function note(n){ // n = MIDI
+    if(n<=0) return 0; return A4*Math.pow(2,(n-69)/12);
+  }
+  // duty pulse via square wave + filtered; approx duty by mixing two squares
+  let schedTimer=null, nextTime=0, step=0, curTheme=null, curTempo=0;
+  // themes: arrays of events per channel. Each event: [midiNote, len(steps)]
+  const N=(x)=>x;
+  function makeTheme(channels, tempo){ return {channels, tempo}; }
+  // simple bassline + arpeggio patterns
+  const REST=0;
+  const themes={
+    town: makeTheme([
+      [[57,4,REST,4,60,4,REST,4,64,4,REST,4,62,4,REST,4], [69,2,72,2,76,2,72,2,74,2,77,2,74,2,72,2]],
+      [[45,8,REST,8,52,8,REST,8], [57,4,60,4,64,4,60,4]],
+      [[33,4,REST,12,33,4,REST,12,34,4,REST,12,33,4,REST,12],[]],
+      [[],[]],
+    ], 132),
+    route: makeTheme([
+      [[60,4,64,4,67,4,64,4, 62,4,65,4,69,4,65,4], [72,2,76,2,79,2,76,2,74,2,77,2,81,2,77,2]],
+      [[48,8,55,8,50,8,57,8], [60,4,60,4,62,4,62,4]],
+      [[36,4,REST,4,36,4,REST,4,38,4,REST,4,38,4,REST,4],[]],
+      [[1,2,REST,2,1,2,REST,2,1,2,REST,2,1,2,REST,2],[]],
+    ], 150),
+    night: makeTheme([
+      [[53,8,REST,8,57,8,REST,8,60,8,REST,8,56,8,REST,8], [69,4,72,4,76,4,72,4, 74,4,77,4,81,4,77,4]],
+      [[41,8,REST,8,48,8,REST,8], [53,8,48,8,53,8,48,8]],
+      [[29,16,REST,16,31,16,REST,16],[]],
+      [[],[]],
+    ], 96),
+    interior: makeTheme([
+      [[60,4,67,4,64,4,67,4, 62,4,67,4,65,4,67,4], [72,2,79,2,76,2,79,2, 74,2,81,2,77,2,81,2]],
+      [[48,8,55,8,50,8,57,8], []],
+      [[36,4,REST,4,40,4,REST,4,38,4,REST,4,42,4,REST,4],[]],
+      [[],[]],
+    ], 128),
+  };
+  let curSteps=[];
+  function setTheme(name){ if(!themes[name]) return; curTheme=name; const th=themes[name]; curTempo=th.tempo;
+    // flatten channel patterns into arrays of {note,len}
+    curSteps=th.channels.map(ch=>{ const seq=[]; for(let p of ch){ const arr=p; for(let i=0;i<arr.length;i+=2){ seq.push({n:arr[i],l:arr[i+1]}); } } return seq; });
+    step=0;
+  }
+  function playChan(ch, n, len){
+    if(DEBUG.mute[ch]) return;
+    const t=ctx.currentTime;
+    const dur=len*(60/curTempo);
+    if(ch<2){ // pulse
+      const osc=ctx.createOscillator(); osc.type="square"; osc.frequency.value=note(n);
+      const g=ctx.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.2,t+0.005); g.gain.setValueAtTime(0.2,t+dur*0.7); g.gain.linearRampToValueAtTime(0,t+dur);
+      osc.connect(g); g.connect(chans[ch]); osc.start(t); osc.stop(t+dur+0.01);
+    } else if(ch===2){ // triangle
+      const osc=ctx.createOscillator(); osc.type="triangle"; osc.frequency.value=note(n);
+      const g=ctx.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.28,t+0.005); g.gain.linearRampToValueAtTime(0,t+dur);
+      osc.connect(g); g.connect(chans[ch]); osc.start(t); osc.stop(t+dur+0.01);
+    } else { // noise
+      const src=ctx.createBufferSource(); src.buffer=noiseBuf; src.loop=true; src.playbackRate.value=0.5+ n*0.0;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.18,t); g.gain.linearRampToValueAtTime(0,t+dur);
+      const hp=ctx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=1000;
+      src.connect(hp); hp.connect(g); g.connect(chans[ch]); src.start(t); src.stop(t+dur+0.01);
+    }
+  }
+  function scheduler(){
+    if(!curTheme){ schedTimer=null; return; }
+    while(nextTime < ctx.currentTime + 0.2){
+      for(let ch=0;ch<curSteps.length;ch++){
+        const seq=curSteps[ch]; if(!seq.length) continue;
+        const ev=seq[step % seq.length];
+        if(ev.n>0) playChan(ch, ev.n, ev.l);
+      }
+      nextTime += (60/curTempo);
+      step++;
+    }
+    schedTimer=setTimeout(scheduler, 25);
+  }
+  function start(name){ init(); if(ctx.state==="suspended") ctx.resume(); setTheme(name); if(!schedTimer){ nextTime=ctx.currentTime+0.05; scheduler(); } }
+  function stop(){ curTheme=null; if(schedTimer){clearTimeout(schedTimer); schedTimer=null;} }
+  // SFX
+  function blip(freq,dur,type,gainv){
+    init(); if(ctx.state==="suspended") ctx.resume();
+    const t=ctx.currentTime; const osc=ctx.createOscillator(); osc.type=type||"square"; osc.frequency.value=freq;
+    const g=ctx.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(gainv||0.2,t+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    osc.connect(g); g.connect(chans[0]); osc.start(t); osc.stop(t+dur+0.01);
+  }
+  function noise(dur,gainv,hp){
+    init(); if(ctx.state==="suspended") ctx.resume();
+    const t=ctx.currentTime; const src=ctx.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
+    const g=ctx.createGain(); g.gain.setValueAtTime(gainv||0.15,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    const f=ctx.createBiquadFilter(); f.type="highpass"; f.frequency.value=hp||800;
+    src.connect(f); f.connect(g); g.connect(chans[3]); src.start(t); src.stop(t+dur+0.01);
+  }
+  let blipPitch=0;
+  const SFX={
+    step(){ blip(180,0.05,"square",0.08); },
+    run(){ blip(240,0.04,"square",0.08); },
+    ledge(){ blip(300,0.08,"square",0.12); setTimeout(()=>blip(500,0.08,"square",0.12),70); },
+    grass(){ noise(0.1,0.06,2000); },
+    menu(){ blip(660,0.04,"square",0.1); },
+    confirm(){ blip(880,0.06,"square",0.12); setTimeout(()=>blip(1320,0.08,"square",0.12),50); },
+    text(){ blip(600+ (blipPitch=(blipPitch+1)%4)*60,0.02,"square",0.06); },
+    journal(){ blip(523,0.08,"square",0.12); setTimeout(()=>blip(659,0.08,"square",0.12),80); setTimeout(()=>blip(784,0.12,"square",0.12),160); },
+    door(){ blip(200,0.12,"triangle",0.12); noise(0.15,0.05,500); },
+    open(){ blip(440,0.05,"square",0.1); },
+  };
+  return { init, start, stop, sfx(name){ if(SFX[name]) SFX[name](); } };
+})();
+function sfx(n){ AUDIO.sfx(n); }
+
+// ─────────────────────────────────────────────────────────────────────────
+// DIALOGUE + TOAST
+// ─────────────────────────────────────────────────────────────────────────
+let dialogue=null; // {text, page, idx, done, npc}
+let toastMsg=null, toastT=0;
+function showToast(t){ toastMsg=t; toastT=120; }
+function startDialogue(text, npc){ dialogue={text:Array.isArray(text)?text:[text], page:0, idx:0, done:false, npc}; }
+function updateDialogue(){
+  if(!dialogue) return;
+  const full=dialogue.text[dialogue.page];
+  if(!dialogue.done){
+    if(dialogue.idx<full.length){ dialogue.idx++; sfx("text"); }
+    if(dialogue.idx>=full.length) dialogue.done=true;
+  }
+  if(consumePress("z")||consumePress(" ")||consumePress("enter")){
+    if(!dialogue.done){ dialogue.idx=full.length; dialogue.done=true; sfx("open"); }
+    else { dialogue.page++; sfx("menu");
+      if(dialogue.page>=dialogue.text.length){ dialogue=null; if(npcFacing) npcFacing=null; }
+      else { dialogue.idx=0; dialogue.done=false; }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// POKEMON RGB SPRITE BUILDER (index canvas -> RGB with per-species palette)
+// ─────────────────────────────────────────────────────────────────────────
+function buildRgbSprite(p){
+  // p.canvas stores palette-index in the RED channel (0=transparent,1..3)
+  const cx=p.canvas.getContext("2d"); const src=cx.getImageData(0,0,p.w,p.h).data;
+  // full-size RGB (for journal)
+  const full=mkCanvas(p.w,p.h); const fx=full.getContext("2d"); const fi=fx.createImageData(p.w,p.h);
+  const palRGB=p.pal.map(c=> c==="transparent"?null: c.match(/\d+/g).map(Number));
+  for(let i=0;i<p.w*p.h;i++){ const s=i*4; const idx=src[s]; if(idx>0){ const c=palRGB[idx]; if(c){ fi.data[s]=c[0]; fi.data[s+1]=c[1]; fi.data[s+2]=c[2]; fi.data[s+3]=255; } } }
+  fx.putImageData(fi,0,0);
+  p.fullRGB=full;
+  // world-size: scale to meta.size (nearest)
+  const ws=p.meta.size;
+  const wc=mkCanvas(ws,ws); const wcx=wc.getContext("2d"); wcx.imageSmoothingEnabled=false;
+  wcx.drawImage(full,0,0,p.w,p.h, 0,0,ws,ws);
+  p.worldRGB=wc;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// INTERIORS (hand-laid rooms, own palette, ignore day cycle)
+// ─────────────────────────────────────────────────────────────────────────
+let interior=null; // {grid:Uint8Array, w,h, doorX, doorY, exit:{x,y}}
+function makeInterior(idx){
+  const w=12,h=10; const g=new Uint8Array(w*h);
+  function S(x,y,v){ g[y*w+x]=v; }
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ S(x,y, 1); } // default wall
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){ S(x,y, 0); } // floor
+  // door mat at bottom center
+  const dx=Math.floor(w/2); S(dx,h-1,2); // door (exit)
+  // some furniture: a rug, a table, a bookshelf
+  for(let y=4;y<=6;y++)for(let x=4;x<=7;x++){ if((x+y)%2===0) S(x,y,3); } // rug
+  S(2,2,4); S(3,2,4); // table
+  S(9,2,5); S(9,3,5); // shelves
+  return {grid:g,w,h,doorX:dx,doorY:h-1,exit:{x:dx,y:h-2}};
+}
+const INTERIORS=[makeInterior(0),makeInterior(1),makeInterior(2),makeInterior(3)];
+let entering=false, enterT=0, exitInt=null;
+
+function enterInterior(i){
+  interior=INTERIORS[i]; player.tx=interior.doorX; player.ty=interior.doorY; player.px=player.tx*TS; player.py=player.ty*TS;
+  player.dir=1; AUDIO.start("interior"); showToast("POKEMON CENTER");
+}
+function exitInterior(){
+  // find the door we came from
+  const d=WORLD.doors.find(dr=>dr.interior===interiorIndex);
+  interior=null;
+  if(d){ player.tx=d.x; player.ty=d.y+1; player.px=player.tx*TS; player.py=player.ty*TS; player.dir=0; AUDIO.start(routeTheme()); }
+}
+let interiorIndex=0;
+function routeTheme(){ return todIndex>=3?"night": (todIndex===2?"night":"route"); }
+
+// ─────────────────────────────────────────────────────────────────────────
+// MENU / JOURNAL UI
+// ─────────────────────────────────────────────────────────────────────────
+let menuState="none"; // none | menu | journal
+let menuCursor=0;
+const MENU_ITEMS=["JOURNAL","OBSERVE HINT","MUTE AUDIO","EXIT"];
+function drawBox(x,y,w,h,fillCol,edgeCol){
+  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){
+    if(x+xx<0||y+yy<0||x+xx>=VW||y+yy>=VH) continue;
+    FRAME[(y+yy)*VW+x+xx] = (xx===0||yy===0||xx===w-1||yy===h-1)?edgeCol:fillCol;
+  }
+}
+function drawMenu(){
+  if(menuState==="none") return;
+  if(menuState==="menu"){
+    const bw=90, bh=MENU_ITEMS.length*TH+8;
+    const bx=VW-bw-4, by=VH-bh-4;
+    drawBox(bx,by,bw,bh,30,0);
+    for(let i=0;i<MENU_ITEMS.length;i++){
+      drawText(MENU_ITEMS[i], bx+6, by+5+i*TH, i===menuCursor?33:0, 30);
+      if(i===menuCursor){ FRAME[(by+5+i*TH+3)*VW+bx+2]=33; FRAME[(by+5+i*TH+3)*VW+bx+3]=33; }
+    }
+  } else if(menuState==="journal"){
+    drawBox(6,6,VW-12,VH-12,30,0);
+    drawText("FIELD JOURNAL", 10, 10, 0, 30);
+    // grid of slots
+    const cols=6, rows=3; const sw=18, sh=18; const ox=14, oy=24;
+    let i=0;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const nm=journal.list[i]; i++;
+      const sx=ox+c*sw, sy=oy+r*sh;
+      drawBox(sx,sy,16,16, journal.seen[nm]?15:4, 0);
+      if(nm && journal.seen[nm]){
+        const p=POKEMON.list.find(pp=>pp.name===nm); if(p&&p.worldRGB){
+          worldCx.drawImage(p.worldRGB, sx, sy);
+          // copy worldCv region back into FRAME? No—journal drawn after conversion. handle separately.
+        }
+      } else {
+        // silhouette '?'
+        drawText("?", sx+5, sy+4, 4, 0);
+      }
+      if(i-1===journal.cursor){ FRAME[(sy)*VW+sx]=33; FRAME[(sy)*VW+sx+1]=33; FRAME[(sy+15)*VW+sx]=33; }
+    }
+    // detail panel
+    const nm=journal.list[journal.cursor];
+    if(nm && journal.seen[nm]){
+      const p=POKEMON.list.find(pp=>pp.name===nm); const m=POKEMON.META[nm];
+      drawBox(110,24,116,80,15,0);
+      if(p&&p.fullRGB) worldCx.drawImage(p.fullRGB,118,30, 48,48);
+      drawText(m.name, 112, 78, 0, 15);
+      wrapText(m.desc, 112, 86, 110, 0, 15);
+      drawText("TERRAIN "+m.terrain.toUpperCase(), 112, 95, 21, 15);
+    } else {
+      drawText("NOT YET OBSERVED", 112, 60, 4, 15);
+    }
+  }
+}
+function wrapText(str,x,y,maxw,col,sh){
+  let words=str.split(" "); let line=""; let yy=y;
+  for(const w of words){ const t=line?line+" "+w:w; if(textW(t)>maxw){ drawText(line,x,yy,col,sh); line=w; yy+=TH; } else line=t; }
+  if(line) drawText(line,x,yy,col,sh);
+}
+function updateMenu(){
+  if(menuState==="menu"){
+    if(consumePress("x")||consumePress("escape")){ menuState="none"; sfx("menu"); }
+    else if(consumePress("arrowup")){ menuCursor=(menuCursor+MENU_ITEMS.length-1)%MENU_ITEMS.length; sfx("menu"); }
+    else if(consumePress("arrowdown")){ menuCursor=(menuCursor+1)%MENU_ITEMS.length; sfx("menu"); }
+    else if(consumePress("z")||consumePress("enter")){
+      const i=menuCursor; sfx("confirm");
+      if(i===0){ menuState="journal"; journal.cursor=0; }
+      else if(i===1){ menuState="none"; showToast("Hold still near a POKEMON to log it."); }
+      else if(i===2){ menuState="none"; AUDIO.stop(); showToast("Audio stopped."); }
+      else if(i===3){ menuState="none"; }
+    }
+  } else if(menuState==="journal"){
+    if(consumePress("x")||consumePress("escape")){ menuState="none"; sfx("menu"); }
+    else if(consumePress("arrowleft")){ journal.cursor=(journal.cursor+journal.list.length-1)%journal.list.length; sfx("menu"); }
+    else if(consumePress("arrowright")){ journal.cursor=(journal.cursor+1)%journal.list.length; sfx("menu"); }
+    else if(consumePress("arrowup")){ journal.cursor=(journal.cursor-journal.list.length+6*10)%journal.list.length; sfx("menu"); }
+    else if(consumePress("arrowdown")){ journal.cursor=(journal.cursor+6)%journal.list.length; sfx("menu"); }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// RENDER FRAME
+// ─────────────────────────────────────────────────────────────────────────
+function renderGround(){
+  // render visible ground from chunk cache into FRAME
+  DEBUG.redraws=0;
+  if(interior){
+    const g=interior.grid, w=interior.w, h=interior.h;
+    const ox=-cam.x, oy=-cam.y;
+    for(let ty=0;ty<h;ty++)for(let tx=0;tx<w;tx++){
+      const v=g[ty*w+tx];
+      const dx=ox+tx*16, dy=oy+ty*16;
+      if(dx< -16||dy< -16||dx>=VW||dy>=VH) continue;
+      // 0 floor 1 wall 2 door 3 rug 4 table 5 shelf
+      if(v===0) blitTile(staticRow("IFLOOR"),staticCol("IFLOOR"),FRAME,VW,dx,dy,false);
+      else if(v===1) blitTile(staticRow("IWALL"),staticCol("IWALL"),FRAME,VW,dx,dy,false);
+      else if(v===2){ blitTile(staticRow("IFLOOR"),staticCol("IFLOOR"),FRAME,VW,dx,dy,false); blitTile(staticRow("DOOR"),staticCol("DOOR"),FRAME,VW,dx,dy,true); }
+      else if(v===3){ blitTile(staticRow("IFLOOR"),staticCol("IFLOOR"),FRAME,VW,dx,dy,false); fillRug(dx,dy); }
+      else if(v===4){ blitTile(staticRow("IFLOOR"),staticCol("IFLOOR"),FRAME,VW,dx,dy,false); blitTile(staticRow("WALL"),staticCol("WALL"),FRAME,VW,dx,dy,true); }
+      else if(v===5){ blitTile(staticRow("IFLOOR"),staticCol("IFLOOR"),FRAME,VW,dx,dy,false); blitTile(staticRow("SIGN"),staticCol("SIGN"),FRAME,VW,dx,dy,true); }
+    }
+    return;
+  }
+  const x0=Math.floor(cam.x/16), y0=Math.floor(cam.y/16);
+  const cx0=Math.floor(cam.x/CHUNKPX), cy0=Math.floor(cam.y/CHUNKPX);
+  for(let cy=cy0-1;cy<=cy0+1;cy++)for(let cx=cx0-1;cx<=cx0+1;cx++){
+    const buf=renderChunk(cx,cy);
+    const sx=(cx*CHUNKPX - cam.x), sy=(cy*CHUNKPX - cam.y);
+    // copy visible part
+    const cpx0=Math.max(0,-sx), cpy0=Math.max(0,-sy);
+    const cpx1=Math.min(CHUNKPX, VW-sx), cpy1=Math.min(CHUNKPX, VH-sy);
+    for(let yy=cpy0;yy<cpy1;yy++){
+      const sO=yy*CHUNKPX+cpx0, dO=(sy+yy)*VW+(sx+cpx0);
+      for(let xx=0;xx<cpx1-cpx0;xx++) FRAME[dO+xx]=buf[sO+xx];
+    }
+  }
+}
+let DEBUG_LAST=null;
+function fillRug(dx,dy){ for(let y=0;y<16;y++)for(let x=0;x<16;x++){ if((x+y)%2===0) FRAME[(dy+y)*VW+dx+x]=32; } }
+
+function renderObjects(){
+  if(interior) return;
+  // build visible object list (trees, houses, signs, fences, flowers, npcs, player) Y-sorted
+  // simple: gather then sort by base row
+  const list=RENDERLIST; let n=0;
+  const x0=Math.floor(cam.x/16)-1, y0=Math.floor(cam.y/16)-2, x1=x0+VW/16+2, y1=y0+VH/16+3;
+  // trees
+  for(const t of WORLD.trees){ if(t.x<x0||t.x>x1||t.y<y0||t.y>y1) continue;
+    list[n++]={row:t.y*16+16, kind:"tree", x:t.x, y:t.y}; }
+  for(const h of WORLD.houses){ if(h.x<x0-2||h.x>x1||h.y<y0-2||h.y>y1) continue;
+    list[n++]={row:h.y*16+ h.h*16, kind:"house", h}; }
+  for(const s of WORLD.signs){ if(s.x<x0||s.x>x1||s.y<y0||s.y>y1) continue; list[n++]={row:s.y*16+16, kind:"sign", s}; }
+  for(const f of WORLD.flowers){ if(f.x<x0||f.x>x1||f.y<y0||f.y>y1) continue; list[n++]={row:f.y*16+16, kind:"flower", f}; }
+  for(const np of WORLD.npcs){ if(np.x<x0||np.x>x1||np.y<y0||np.y>y1) continue; list[n++]={row:np.y*16+16, kind:"npc", np}; }
+  // player
+  list[n++]={row:player.py+SPR_H, kind:"player"};
+  // insertion sort by row
+  for(let i=1;i<n;i++){ const tmp=list[i]; let j=i-1; while(j>=0 && list[j].row>tmp.row){ list[j+1]=list[j]; j--; } list[j+1]=tmp; }
+  for(let i=0;i<n;i++){ const o=list[i];
+    const sx=o.x!==undefined? (o.x*16 - cam.x):0, sy=(o.row) - cam.y - SPR_H; // sprite top
+    if(o.kind==="tree"){ const dx=o.x*16-cam.x; blitTile(staticRow("TREE_T"),staticCol("TREE_T"),FRAME,VW,dx,o.y*16-cam.y,true); blitTile(staticRow("TREE_C"),staticCol("TREE_C"),FRAME,VW,dx,(o.y-1)*16-cam.y,true); }
+    else if(o.kind==="house"){ drawHouse(o.h); }
+    else if(o.kind==="sign"){ blitTile(staticRow("SIGN"),staticCol("SIGN"),FRAME,VW,o.s.x*16-cam.x,o.s.y*16-cam.y,true); }
+    else if(o.kind==="flower"){ const t=o.f.type; blitTile(staticRow(t),staticCol(t),FRAME,VW,o.f.x*16-cam.x,o.f.y*16-cam.y,true); }
+    else if(o.kind==="npc"){ const sp=NPC_SPRITES[o.np.ni||0]; const dx=o.np.x*16-cam.x, dy=o.np.y*16-cam.y-8; blitIndexSprite(FRAME,VW,dx,dy,sp[["down","up","left","right"][o.np.dir]][0],SPR_W,SPR_H); }
+    else if(o.kind==="player"){ drawPlayer(); }
+  }
+}
+const RENDERLIST=[]; for(let i=0;i<512;i++) RENDERLIST.push({row:0,kind:"",x:0,y:0});
+
+function drawHouse(h){
+  // roof row h.y, walls h.y+1,h.y+2; door at (door.x,door.y)
+  const dx=h.x*16-cam.x;
+  // roof: 3 tiles
+  blitTile(staticRow("ROOF_L"),staticCol("ROOF_L"),FRAME,VW,dx,(h.y)*16-cam.y,true);
+  blitTile(staticRow("ROOF_C"),staticCol("ROOF_C"),FRAME,VW,dx+16,(h.y)*16-cam.y,true);
+  blitTile(staticRow("ROOF_R"),staticCol("ROOF_R"),FRAME,VW,dx+32,(h.y)*16-cam.y,true);
+  // walls
+  for(let yy=1;yy<=2;yy++)for(let xx=0;xx<3;xx++){
+    blitTile(staticRow("WALL"),staticCol("WALL"),FRAME,VW,dx+xx*16,(h.y+yy)*16-cam.y,true);
+  }
+  // windows row 1
+  blitTile(staticRow("WINDOW"),staticCol("WINDOW"),FRAME,VW,dx,(h.y+1)*16-cam.y,true);
+  blitTile(staticRow("WINDOW"),staticCol("WINDOW"),FRAME,VW,dx+32,(h.y+1)*16-cam.y,true);
+  // door row 2 center
+  blitTile(staticRow("DOOR"),staticCol("DOOR"),FRAME,VW,dx+16,(h.y+2)*16-cam.y,true);
+}
+
+function drawPlayer(){
+  const dx=Math.round(player.px - cam.x), dy=Math.round(player.py - cam.y) - 8;
+  let framei=0;
+  if(player.moving){ framei = (Math.floor(player.animT/4)%2===0)?1:2; }
+  const dirArr=["down","up","left","right"][player.dir];
+  const sp=PLAYER_SPRITES[dirArr];
+  blitIndexSprite(FRAME,VW,dx,dy,sp[framei],SPR_W,SPR_H);
+}
+
+function renderCreatures(){
+  if(interior) return;
+  // drawn as RGB on worldCv AFTER conversion; but we need them sorted too. Draw in row order.
+  for(const c of creatures){
+    const dx=Math.round(c.px - cam.x), dy=Math.round(c.py - cam.y);
+    if(dx< -40||dy< -40||dx>=VW+40||dy>=VH+40) continue;
+    if(!c.p||!c.p.worldRGB) continue;
+    let drawW=c.meta.size, drawH=c.meta.size;
+    // shadow
+    worldCx.fillStyle="rgb(0,0,0)"; worldCx.fillRect(dx+3, dy+drawH-3, drawW-6, 2);
+    // tall grass occlusion: clip lower portion
+    const tileV = (c.ty>=0&&c.ty<WORLD_H&&c.tx>=0&&c.tx<WORLD_W)? WORLD.terr[c.ty*WORLD_W+c.tx]:T_GRASS;
+    if(tileV===T_TALLGRASS){ worldCx.save(); worldCx.beginPath(); worldCx.rect(dx,dy,drawW, Math.floor(drawH*0.55)); worldCx.clip(); }
+    worldCx.imageSmoothingEnabled=false;
+    worldCx.drawImage(c.p.worldRGB, dx, dy, drawW, drawH);
+    if(tileV===T_TALLGRASS) worldCx.restore();
+    // rustle: when creature moving in tall grass, overlay rustle
+    if(tileV===T_TALLGRASS && c.moving){ worldCx.fillStyle="rgb("+activePalRGB[5].join(",")+")"; worldCx.fillRect(dx, dy+drawH-4, drawW, 4); }
+  }
+}
+
+function renderUI(){
+  // toast
+  if(toastMsg && toastT>0){
+    const w=textW(toastMsg)+10, h=TH+4;
+    const bx=(VW-w)/2, by=4;
+    drawBox(bx,by,w,h,0,7);
+    drawText(toastMsg, bx+5, by+3, 7, 0);
+  }
+  // dialogue
+  if(dialogue){
+    const full=dialogue.text[dialogue.page];
+    const shown=full.slice(0,dialogue.idx);
+    drawBox(6, VH-34, VW-12, 28, 30, 0);
+    wrapText(shown, 12, VH-28, VW-24, 0, 30);
+    if(dialogue.done){ // blinking arrow
+      if(Math.floor(performance.now()/300)%2===0) drawText("v", VW-18, VH-18, 0, 30);
+    }
+  }
+  drawMenu();
+  drawDebug();
+}
+
+let npcFacing=null;
+function renderFrame(){
+  // 1. ground -> FRAME
+  renderGround();
+  // 2. objects + player (index) into FRAME
+  renderObjects();
+  // 3. convert FRAME -> worldImg via activePalRGB
+  const d=worldImg.data;
+  for(let i=0;i<VW*VH;i++){ const c=activePalRGB[FRAME[i]]; const o=i*4; d[o]=c[0]; d[o+1]=c[1]; d[o+2]=c[2]; d[o+3]=255; }
+  worldCx.putImageData(worldImg,0,0);
+  // 4. creatures (RGB) on worldCv
+  renderCreatures();
+  // 5. UI drawn into FRAME? UI is after conversion — redraw UI into worldImg region:
+  //    We already drew UI into FRAME before conversion? No—UI drawn after. So draw UI onto worldCv via index? 
+  // Simpler: draw UI into a temp then... We'll draw UI directly as RGB using activePalRGB on worldCv via fillRect.
+  drawUI_RGB();
+  // 6. scale to screen
+  sctx.fillStyle="#000"; sctx.fillRect(0,0,screen.width,screen.height);
+  sctx.drawImage(worldCv,0,0);
+}
+
+// UI in RGB: re-render using activePalRGB (so palette-swap applies)
+function uiFill(x,y,w,h,col){ const c=activePalRGB[col]; worldCx.fillStyle="rgb("+c[0]+","+c[1]+","+c[2]+")"; worldCx.fillRect(x,y,w,h); }
+function drawTextRGB(str,x,y,col,sh){
+  const c=activePalRGB[col], cs=sh>=0?activePalRGB[sh]:null;
+  let cx=x;
+  for(let i=0;i<str.length;i++){
+    const bits=FONTBITS[str.charCodeAt(i)]||FONTBITS["?".charCodeAt(0)];
+    if(!bits){ cx+=TW; continue; }
+    for(let yy=0;yy<7;yy++)for(let xx=0;xx<5;xx++){
+      if(bits[yy*5+xx]){
+        if(cs){ worldCx.fillStyle="rgb("+cs[0]+","+cs[1]+","+cs[2]+")"; worldCx.fillRect(cx+xx+1,y+yy+1,1,1); }
+        worldCx.fillStyle="rgb("+c[0]+","+c[1]+","+c[2]+")"; worldCx.fillRect(cx+xx,y+yy,1,1);
+      }
+    }
+    cx+=TW;
+  }
+}
+function drawBoxRGB(x,y,w,h,fillCol,edgeCol){
+  const f=activePalRGB[fillCol], e=activePalRGB[edgeCol];
+  worldCx.fillStyle="rgb("+f[0]+","+f[1]+","+f[2]+")"; worldCx.fillRect(x+1,y+1,w-2,h-2);
+  worldCx.fillStyle="rgb("+e[0]+","+e[1]+","+e[2]+")";
+  worldCx.fillRect(x,y,w,1); worldCx.fillRect(x,y+h-1,w,1); worldCx.fillRect(x,y,1,h); worldCx.fillRect(x+w-1,y,1,h);
+}
+function wrapTextRGB(str,x,y,maxw,col,sh){
+  const words=str.split(" "); let line="", yy=y;
+  for(const w of words){ const t=line?line+" "+w:w; if(textW(t)>maxw){ drawTextRGB(line,x,yy,col,sh); line=w; yy+=TH; } else line=t; }
+  if(line) drawTextRGB(line,x,yy,col,sh);
+}
+function drawUI_RGB(){
+  if(toastMsg && toastT>0){ const w=textW(toastMsg)+10,h=TH+4,bx=(VW-w)/2,by=4; drawBoxRGB(bx,by,w,h,0,7); drawTextRGB(toastMsg,bx+5,by+3,7,0); }
+  if(dialogue){ const full=dialogue.text[dialogue.page]; const shown=full.slice(0,dialogue.idx);
+    drawBoxRGB(6,VH-34,VW-12,28,30,0); wrapTextRGB(shown,12,VH-28,VW-24,0,30);
+    if(dialogue.done && Math.floor(performance.now()/300)%2===0) drawTextRGB("v",VW-18,VH-18,0,30); }
+  // menu
+  if(menuState==="menu"){ const bw=90,bh=MENU_ITEMS.length*TH+8,bx=VW-bw-4,by=VH-bh-4; drawBoxRGB(bx,by,bw,bh,30,0);
+    for(let i=0;i<MENU_ITEMS.length;i++){ drawTextRGB(MENU_ITEMS[i],bx+6,by+5+i*TH,i===menuCursor?33:0,30);
+      if(i===menuCursor){ worldCx.fillStyle="rgb("+activePalRGB[33].join(",")+")"; worldCx.fillRect(bx+2,by+5+i*TH+3,3,1); } } }
+  else if(menuState==="journal"){ drawBoxRGB(6,6,VW-12,VH-12,30,0); drawTextRGB("FIELD JOURNAL",10,10,0,30);
+    const cols=6,rows=3,sw=18,sh=18,ox=14,oy=24; let i=0;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const nm=journal.list[i++]; const sx=ox+c*sw,sy=oy+r*sh;
+      drawBoxRGB(sx,sy,16,16, journal.seen[nm]?15:4,0);
+      if(nm&&journal.seen[nm]){ const p=POKEMON.list.find(pp=>pp.name===nm); if(p&&p.worldRGB){ worldCx.imageSmoothingEnabled=false; worldCx.drawImage(p.worldRGB,sx,sy);} }
+      else drawTextRGB("?",sx+5,sy+4,4,0);
+      if(i-1===journal.cursor){ worldCx.fillStyle="rgb("+activePalRGB[33].join(",")+")"; worldCx.fillRect(sx,sy,16,1); } }
+    const nm=journal.list[journal.cursor];
+    drawBoxRGB(110,24,116,80,15,0);
+    if(nm&&journal.seen[nm]){ const p=POKEMON.list.find(pp=>pp.name===m_name(nm)); const m=POKEMON.META[nm];
+      if(p&&p.fullRGB){ worldCx.imageSmoothingEnabled=false; worldCx.drawImage(p.fullRGB,118,30,48,48); }
+      drawTextRGB(m.name,112,78,0,15); wrapTextRGB(m.desc,112,86,110,0,15); drawTextRGB("TERRAIN "+m.terrain.toUpperCase(),112,95,21,15);
+    } else drawTextRGB("NOT YET OBSERVED",112,60,4,15);
+  }
+  if(DEBUG.on) drawDebugRGB();
+}
+function m_name(nm){ return nm; }
+function drawDebugRGB(){
+  const gx=2,gy=2,gw=80,gh=20; drawBoxRGB(gx,gy,gw,gh,0,7);
+  for(let x=0;x<gw;x++){ const t=DEBUG.frameTimes[(DEBUG.ftI+x)%DEBUG.frameTimes.length]; const h=Math.min(gh,Math.round(t*gh/33)); const col=t>20?32:7;
+    worldCx.fillStyle="rgb("+activePalRGB[col].join(",")+")"; worldCx.fillRect(gx+x,gy+gh-h,1,h); }
+  drawTextRGB("FT "+DEBUG.frameTimes[DEBUG.ftI].toFixed(1),gx,gy+gh+1,30,0);
+  drawTextRGB("CH "+DEBUG.redraws,gx,gy+gh+9,30,0);
+  drawTextRGB("TILE "+player.tx+","+player.ty,gx,gy+gh+17,30,0);
+  drawTextRGB("TOD "+["MORN","DAY","DUSK","NIGHT"][todIndex]+" "+DEBUG.scrub.toFixed(2),gx,gy+gh+25,30,0);
+  drawTextRGB("MON "+creatures.length+" SP "+creaturesSpecies(),gx,gy+gh+33,30,0);
+  drawTextRGB("MUTE "+DEBUG.mute.map(m=>m?"x":".").join(""),gx,gy+gh+41,30,0);
+  drawTextRGB("[`]DBG [F]FREE [R]SEED",gx,gy+gh+49,30,0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MOVEMENT + INTERACTION
+// ─────────────────────────────────────────────────────────────────────────
+function tryInteract(){
+  // confirm key facing target tile
+  const fx=player.tx+DIR_DX[player.dir], fy=player.ty+DIR_DY[player.dir];
+  // NPC
+  for(const np of WORLD.npcs){ if(np.x===fx&&np.y===fy){ np.dir=(player.dir+1)%2===0? (player.dir===0?1:0):(player.dir===2?3:2); 
+    // face player: opposite of player's dir
+    np.dir = player.dir===0?1: player.dir===1?0: player.dir===2?3:2;
+    startDialogue(np.text, np); sfx("confirm"); return; } }
+  // sign
+  for(const s of WORLD.signs){ if(s.x===fx&&s.y===fy){ startDialogue(s.text,null); sfx("confirm"); return; } }
+  // door
+  for(const d of WORLD.doors){ if(d.x===fx&&d.y===fy){ interiorIndex=d.interior; sfx("door"); enterInterior(d.interior); return; } }
+  if(interior){
+    if(fx===interior.doorX && fy===interior.doorY+1){ sfx("door"); exitInterior(); return; }
+    // actually exit warp: standing on door tile pressing down
+  }
+}
+
+function canEnter(tx,ty,dir){
+  if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return false;
+  const idx=ty*WORLD_W+tx;
+  if(WORLD.solid[idx]===1){
+    // ledge hop: stepping in the ledge's hop direction onto it
+    const ld=WORLD.ledge[idx];
+    if(ld>=0 && ld===dir) return "hop";
+    return false;
+  }
+  // can't climb ledge backwards: if current tile is ledge and dir opposite
+  return true;
+}
+
+function startStep(dir){
+  player.dir=dir;
+  if(dialogue||menuState!=="none"){ return; }
+  const nx=player.tx+DIR_DX[dir], ny=player.ty+DIR_DY[dir];
+  // one-way ledge: if standing on ledge, can't go opposite
+  const curLd = WORLD.ledge[player.ty*WORLD_W+player.tx];
+  if(curLd>=0){ const opp = curLd===0?1:curLd===1?0:curLd===2?3:2; if(dir===opp){ return; } }
+  const res=canEnter(nx,ny,dir);
+  if(!res) return; // blocked, but dir already set (turn in place)
+  if(interior){
+    // interior movement: walls solid; check door warp
+    if(nx<0||ny<0||nx>=interior.w||ny>=interior.h){ return; }
+    if(interior.grid[ny*interior.w+nx]===1) return;
+    player.tx=nx; player.ty=ny; player.moving=true; player.stepT=0; player.stepDur= player.run?9:14; sfx(player.run?"run":"step");
+    return;
+  }
+  if(res==="hop"){
+    // hop over ledge: land on the tile beyond? we land on the ledge tile
+    player.tx=nx; player.ty=ny; player.moving=true; player.stepT=0; player.hop=true; player.stepDur= player.run?10:16; sfx("ledge");
+    return;
+  }
+  player.tx=nx; player.ty=ny; player.moving=true; player.stepT=0; player.stepDur= player.run?9:14;
+  // step sfx only on certain terrain
+  const v=WORLD.terr[ny*WORLD_W+nx];
+  if(v===T_TALLGRASS) sfx("grass"); else sfx(player.run?"run":"step");
+}
+
+function updateMovement(dt){
+  if(dialogue||menuState!=="none") return;
+  if(player.moving){
+    player.animT += dt*(player.run?2:1);
+    player.stepT += dt;
+    const f=Math.min(1,player.stepT/player.stepDur);
+    const sx=player.tx - DIR_DX[player.dir], sy=player.ty - DIR_DY[player.dir];
+    player.px = (sx + DIR_DX[player.dir]*f)*TS;
+    player.py = (sy + DIR_DY[player.dir]*f)*TS;
+    if(player.hop){ player.hopY = -Math.sin(f*Math.PI)*6; } else player.hopY=0;
+    if(f>=1){ player.moving=false; player.px=player.tx*TS; player.py=player.ty*TS; player.hopY=0; player.hop=false; player.animT=0; }
+    return;
+  }
+  player.hopY=0;
+  // input -> step
+  if(keys["arrowdown"]||keys["s"]) startStep(0);
+  else if(keys["arrowup"]||keys["w"]) startStep(1);
+  else if(keys["arrowleft"]||keys["a"]) startStep(2);
+  else if(keys["arrowright"]||keys["d"]) startStep(3);
+  player.run = !!(keys["shift"]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// GAME LOOP (fixed timestep 60Hz, accumulator)
+// ─────────────────────────────────────────────────────────────────────────
+let last=0, acc=0, running=false;
+function loop(now){
+  if(!last) last=now;
+  let dt=now-last; last=now;
+  if(dt>100) dt=100;
+  acc+=dt;
+  let steps=0;
+  while(acc>=DT && steps<5){
+    tick(DT); acc-=DT; steps++;
+  }
+  renderFrame();
+  // debug timing
+  DEBUG.ftI=(DEBUG.ftI+1)%DEBUG.frameTimes.length;
+  DEBUG.frameTimes[DEBUG.ftI]=dt;
+  requestAnimationFrame(loop);
+}
+function tick(dt){
+  // global key triggers (non-movement)
+  if(consumePress("enter")||consumePress("z")){ if(!dialogue && menuState==="none" && !player.moving) tryInteract(); }
+  if(consumePress("escape")||consumePress("x")){
+    if(menuState==="none" && !dialogue){ menuState="menu"; menuCursor=0; sfx("open"); }
+    else if(menuState==="journal"){ menuState="menu"; sfx("menu"); }
+  }
+  if(consumePress("j")){ menuState = menuState==="journal"?"none":"journal"; if(menuState==="journal") journal.cursor=0; sfx("open"); }
+  if(consumePress("f")){ DEBUG.freeCam=!DEBUG.freeCam; }
+  if(consumePress("r")&&DEBUG.on){ reseed(); }
+  if(consumePress("1")) DEBUG.mute[0]=!DEBUG.mute[0];
+  if(consumePress("2")) DEBUG.mute[1]=!DEBUG.mute[1];
+  if(consumePress("3")) DEBUG.mute[2]=!DEBUG.mute[2];
+  if(consumePress("4")) DEBUG.mute[3]=!DEBUG.mute[3];
+  if(DEBUG.on){ if(keys["["])DEBUG.scrub=Math.max(0,DEBUG.scrub-0.005); if(keys["]"])DEBUG.scrub=Math.min(1,DEBUG.scrub+0.005); }
+  updateMovement(dt);
+  updateDialogue();
+  updateMenu();
+  if(!interior){
+    todClock += dt/DAY_MS; if(todClock>=1) todClock-=1;
+    updateTod();
+  } else { applyTod("day"); } // interiors ignore cycle -> but interior uses its own; keep day palette
+  // creatures
+  if(creaturesReady && !interior){ for(const c of creatures) updateCreature(c,dt); for(const c of creatures) observeCreature(c); }
+  // toast
+  if(toastT>0){ toastT--; if(toastT<=0) toastMsg=null; }
+  // camera
+  if(!DEBUG.freeCam){ if(interior){ cam.x=Math.round(player.px+SPR_W/2-VW/2); cam.y=Math.round(player.py+SPR_H-VH/2-8); } else camFollow(); }
+  else { if(keys["i"])cam.y-=2; if(keys["k"])cam.y+=2; if(keys["j"]&&!keys["shift"])cam.x-=2; if(keys["l"])cam.x+=2; cam.x=Math.round(cam.x); cam.y=Math.round(cam.y); }
+}
+function reseed(){
+  // simple: just clear chunk cache to force redraw with same world (no full regen to keep it stable)
+  chunkCache.clear(); showToast("Chunks invalidated.");
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SCALING (integer, fit window)
+// ─────────────────────────────────────────────────────────────────────────
+function fit(){
+  const sc=Math.max(1,Math.floor(Math.min(window.innerWidth/VW, window.innerHeight/VH)));
+  screen.style.width=(VW*sc)+"px"; screen.style.height=(VH*sc)+"px";
+}
+window.addEventListener("resize",fit);
+
+// ─────────────────────────────────────────────────────────────────────────
+// TITLE + BOOT
+// ─────────────────────────────────────────────────────────────────────────
+let titleScreen=true, titleT=0, bootDone=false;
+function drawTitle(){
+  // gradient-ish grass scene: just fill frame with grass + a big logo
+  for(let i=0;i<VW*VH;i++) FRAME[i]= (Math.floor(i/VW)%4===0)?6:7;
+  // draw some tree silhouettes
+  // title text
+  const txt="GRASSLAND";
+  drawTextRGB?0:0;
+  // we are on worldCv already? Title is drawn before world loop. Draw to screen directly via sctx.
+  sctx.fillStyle="#0f380f"; sctx.fillRect(0,0,screen.width,screen.height);
+  sctx.imageSmoothingEnabled=false;
+  // big pixel title using font scaled
+  const txt2="GRASSLAND";
+  let tw=0; for(const ch of txt2) tw+=TW;
+  let x=Math.floor((VW-tw*2)/2);
+  drawTitleText(txt2, x, 50, 2);
+  drawTitleText("A POKEMON FIELD STUDY", Math.floor((VW-textW("A POKEMON FIELD STUDY")*1)/2), 70, 1);
+  if(Math.floor(titleT/30)%2===0) drawTitleText("PRESS Z TO START", Math.floor((VW-textW("PRESS Z TO START"))/2), 110, 1);
+}
+function drawTitleText(str,x,scale,col){
+  for(let i=0;i<str.length;i++){
+    const bits=FONTBITS[str.charCodeAt(i)]||FONTBITS["?".charCodeAt(0)];
+    for(let yy=0;yy<7;yy++)for(let xx=0;xx<5;xx++){
+      if(bits[yy*5+xx]){ sctx.fillStyle = col===2?"#d8e878": (col===1?"#9ccc48":"#f0f0a0");
+        sctx.fillRect((x+i*TW+xx)* (screen.width/VW), (50+yy+ (0))* (screen.height/VH)*0+ (scale? (i):0),1,1); }
+    }
+  }
+}
+
+// Boot sequence
+async function boot(){
+  fit();
+  await POKEMON.ready;
+  // build RGB sprites
+  for(const p of POKEMON.list) buildRgbSprite(p);
+  spawnCreatures(POKEMON.list);
+  buildJournalList();
+  WORLD.npcs.forEach((n,i)=>{ n.ni=i%4; });
+  AUDIO.init();
+  applyTod("day");
+  // prime creatures camera
+  camFollow();
+  document.getElementById("boot").classList.add("gone");
+  bootDone=true;
+  last=0;
+  requestAnimationFrame(loop);
+}
+boot();
+
+window.__SENTINEL="END";
+</script>
+</body>
+</html>
