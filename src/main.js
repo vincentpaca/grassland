@@ -62,7 +62,8 @@ async function boot() {
   setTimeout(() => { const l = loaderEl(); if (l) l.style.display = 'none'; }, 800);
 
   const cam = { yaw: Math.PI, pitch: 0.20, dist: 9, cur: camera.position.clone() };
-  const move = { vx: 0, vz: 0 };
+  const move = { vx: 0, vz: 0, heading: Math.PI };
+  let orbitOffset = 0;
   let last = performance.now();
   const ft = new Array(120).fill(11); let fti = 0, tAcc = 0;
 
@@ -70,31 +71,33 @@ async function boot() {
     const now = performance.now(); let dt = (now - last) / 1000; last = now; if (dt > 0.05) dt = 0.05;
     wind.time += dt; wind.amp = 0.08 + ctx.settings.wind * 1.2;
 
-    cam.yaw += ctx.input.mouseDX * 0.005; ctx.input.mouseDX *= 0.7;
+    orbitOffset += ctx.input.mouseDX * 0.005; ctx.input.mouseDX *= 0.7;
+    orbitOffset *= (1 - Math.min(1, dt * 1.2)); // free-look eases back behind the character
     cam.pitch = B.Scalar.Clamp(cam.pitch - ctx.input.my * 0.003, 0.05, 1.1); ctx.input.my *= 0.7;
-    cam.dist = B.Scalar.Clamp(cam.dist - ctx.input.wheel * 0.5, 3.5, 18); ctx.input.wheel *= 0.8;
+    cam.dist = B.Scalar.Clamp(cam.dist - ctx.input.wheel * 0.5, 4, 18); ctx.input.wheel *= 0.8;
 
     const k = ctx.input.keys;
-    let ix = 0, iz = 0;
-    if (k['w'] || k['arrowup']) iz += 1; if (k['s'] || k['arrowdown']) iz -= 1;
-    if (k['a'] || k['arrowleft']) ix -= 1; if (k['d'] || k['arrowright']) ix += 1;
-    const il = Math.hypot(ix, iz) || 1; ix /= il; iz /= il;
-    const fwd = new B.Vector3(Math.sin(cam.yaw), 0, Math.cos(cam.yaw));
-    const right = new B.Vector3(fwd.z, 0, -fwd.x);
+    const turn = (k['d'] || k['arrowright'] ? 1 : 0) - (k['a'] || k['arrowleft'] ? 1 : 0);
+    const fwdIn = (k['w'] || k['arrowup'] ? 1 : 0) - (k['s'] || k['arrowdown'] ? 1 : 0);
     const shift = !!(k['shift']);
-    const want = Math.hypot(ix, iz) > 0 ? (shift ? 11.0 : 5.0) : 0;
-    const dvx = (fwd.x * iz + right.x * ix) * want, dvz = (fwd.z * iz + right.z * ix) * want;
-    move.vx += (dvx - move.vx) * Math.min(1, dt * 9);
-    move.vz += (dvz - move.vz) * Math.min(1, dt * 9);
+    // A/D turn character + camera together (classic 3rd-person); W/S forward/back along facing
+    move.heading += turn * 2.4 * dt;
+    cam.yaw = move.heading + orbitOffset;
+    const sinH = Math.sin(move.heading), cosH = Math.cos(move.heading);
+    const maxSp = shift ? 11.0 : 5.0;
+    const want = fwdIn > 0 ? maxSp : (fwdIn < 0 ? -maxSp * 0.45 : 0);
+    move.vx += (sinH * want - move.vx) * Math.min(1, dt * 9);
+    move.vz += (cosH * want - move.vz) * Math.min(1, dt * 9);
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
-    player.update(dt, move.vx, move.vz, wind, shift);
+    player.setHeading(move.heading);
+    player.update(dt, move.vx, move.vz, wind, shift, turn);
 
     pokemon.update(dt, player);
     grass.update(player.position, wind);
     world.update(wind, player.position);
 
-    const head = new B.Vector3(player.position.x, player.position.y + 0.6, player.position.z);
+    const head = new B.Vector3(player.position.x, player.position.y + 1.2, player.position.z);
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     const des = new B.Vector3(head.x - Math.sin(cam.yaw) * cp * cam.dist + Math.cos(cam.yaw) * 0.8, head.y + sp * cam.dist + 1.0, head.z - Math.cos(cam.yaw) * cp * cam.dist - Math.sin(cam.yaw) * 0.8);
     cam.cur = B.Vector3.Lerp(cam.cur, des, Math.min(1, dt * 7));
