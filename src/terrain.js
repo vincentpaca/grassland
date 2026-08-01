@@ -112,43 +112,64 @@ export function createGrassland(scene, ctx) {
   ground.material = matGrass; ground.receiveShadows = true; ground.applyFog = true; ground.freezeWorldMatrix();
   shadow.addShadowCaster(ground);
 
-  // --- trees with bark + swaying foliage ---
+  // --- trees with bark + swaying foliage (organic lumpy foliage + branches) ---
   const trunkMat = new B.PBRMaterial('trunkM', scene);
   trunkMat.albedoColor = new B.Color3(0.30, 0.19, 0.11); trunkMat.roughness = 0.95;
   trunkMat.bumpTexture = barkNormalTexture(scene); trunkMat.bumpTexture.level = 0.8; trunkMat.invertNormalMapX = true; trunkMat.invertNormalMapY = true;
-  const foliage = []; // {mesh, baseY, phase, ax, ay, sway}
+  const foliage = []; // {mesh, baseY, phase, ax, sway, parent}
+  function makeBlob(radius, mat, seed) {
+    const m = B.MeshBuilder.CreateIcoSphere('blob', { radius, radiusX: radius, radiusY: radius * 0.95, radiusZ: radius, subdivisions: 3 }, scene);
+    const pos = m.getVerticesData(B.VertexBuffer.PositionKind);
+    for (let i = 0; i < pos.length / 3; i++) {
+      const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+      const n = (valueNoise(x * 3 + seed, z * 3, seed) - 0.5) * 1.2 + (valueNoise(y * 5 + seed, x * 5, 7) - 0.5) * 0.8;
+      const l = Math.hypot(x, y, z) || 1;
+      const k = 1 + n * 0.22;
+      pos[i * 3] = x / l * radius * k; pos[i * 3 + 1] = y / l * radius * k; pos[i * 3 + 2] = z / l * radius * k;
+    }
+    m.setVerticesData(B.VertexBuffer.PositionKind, pos);
+    const nor = B.VertexData.ComputeNormals(m.getIndices(), pos, new Float32Array(pos.length));
+    m.setVerticesData(B.VertexBuffer.NormalKind, nor);
+    m.material = mat; return m;
+  }
   function makeTree(px, pz, s, conifer) {
     const root = new B.TransformNode('tree', scene); root.position.set(px, height(px, pz), pz);
-    const trunk = B.MeshBuilder.CreateCylinder('trunk', { diameterTop: 0.18 * s, diameterBottom: 0.34 * s, height: 2.6 * s, tessellation: 7 }, scene);
-    trunk.position.y = 1.3 * s; trunk.parent = root; trunk.material = trunkMat; trunk.receiveShadows = true; trunk.applyFog = true;
+    const trunk = B.MeshBuilder.CreateCylinder('trunk', { diameterTop: 0.16 * s, diameterBottom: 0.36 * s, height: 2.8 * s, tessellation: 8 }, scene);
+    trunk.position.y = 1.4 * s; trunk.parent = root; trunk.material = trunkMat; trunk.receiveShadows = true; trunk.applyFog = true;
     shadow.addShadowCaster(trunk, true);
     const tint = 0.8 + Math.random() * 0.4;
     const fMat = new B.PBRMaterial('folM', scene);
-    fMat.albedoColor = new B.Color3(0.2 * tint, 0.46 * tint, 0.18 * tint); fMat.roughness = 0.92;
+    fMat.albedoColor = new B.Color3(0.2 * tint, 0.46 * tint, 0.18 * tint); fMat.roughness = 0.93;
     if (conifer) {
-      for (let k = 0; k < 3; k++) {
-        const f = B.MeshBuilder.CreateCylinder('fol', { diameterTop: 0, diameterBottom: (2.6 - k * 0.5) * s, height: 1.6 * s, tessellation: 7 }, scene);
-        f.position.set(0, (2.4 + k * 1.0) * s, 0); f.parent = root; f.material = fMat; f.receiveShadows = true; f.applyFog = true;
-        shadow.addShadowCaster(f, true); foliage.push({ mesh: f, baseY: f.position.y, phase: Math.random() * 6.28, ax: 0.04 + Math.random() * 0.03, sway: 0.5 + Math.random() * 0.6, parent: root });
+      for (let k = 0; k < 4; k++) {
+        const cone = B.MeshBuilder.CreateCylinder('fol', { diameterTop: 0, diameterBottom: (2.8 - k * 0.55) * s, height: 1.8 * s, tessellation: 8 }, scene);
+        // displace cone rim a touch for irregularity
+        const cp = cone.getVerticesData(B.VertexBuffer.PositionKind);
+        for (let i = 0; i < cp.length / 3; i++) { cp[i * 3] += (valueNoise(i, k, 3) - 0.5) * 0.12 * s; cp[i * 3 + 2] += (valueNoise(i + 9, k, 5) - 0.5) * 0.12 * s; }
+        cone.setVerticesData(B.VertexBuffer.PositionKind, cp);
+        cone.position.set((Math.random() - 0.5) * 0.2 * s, (2.6 + k * 1.0) * s, (Math.random() - 0.5) * 0.2 * s); cone.parent = root; cone.material = fMat; cone.receiveShadows = true; cone.applyFog = true;
+        shadow.addShadowCaster(cone, true); foliage.push({ mesh: cone, baseY: cone.position.y, phase: Math.random() * 6.28, ax: 0.03 + Math.random() * 0.02, sway: 0.4 + Math.random() * 0.5, parent: root });
       }
     } else {
-      for (let k = 0; k < 4; k++) {
-        const f = B.MeshBuilder.CreateSphere('fol', { diameter: (2.4 - k * 0.35) * s, segments: 8 }, scene);
-        f.position.set((k - 1.5) * 0.55 * s, (2.7 + k * 0.45) * s, (Math.random() - 0.5) * 0.7 * s);
-        f.scaling.y = 0.82; f.parent = root; f.material = fMat; f.receiveShadows = true; f.applyFog = true;
-        shadow.addShadowCaster(f, true); foliage.push({ mesh: f, baseY: f.position.y, phase: Math.random() * 6.28, ax: 0.05 + Math.random() * 0.04, sway: 0.6 + Math.random() * 0.7, parent: root });
+      // a couple of branches
+      for (let b = 0; b < 2; b++) {
+        const br = B.MeshBuilder.CreateCylinder('br', { diameterTop: 0.05 * s, diameterBottom: 0.14 * s, height: 1.4 * s, tessellation: 6 }, scene);
+        br.position.set((b ? 0.5 : -0.5) * s, 2.0 * s, 0); br.rotation.z = (b ? 0.6 : -0.6); br.parent = root; br.material = trunkMat; shadow.addShadowCaster(br, true);
+      }
+      // 5-7 lumpy foliage clusters at irregular positions/scales
+      const ncl = 5 + Math.floor(Math.random() * 3);
+      for (let k = 0; k < ncl; k++) {
+        const r = (0.9 + Math.random() * 0.7) * s;
+        const blob = makeBlob(r, fMat, Math.random() * 100);
+        const ang = (k / ncl) * 6.28 + Math.random();
+        blob.position.set(Math.cos(ang) * (0.6 + Math.random() * 0.8) * s, (2.6 + Math.random() * 1.2) * s, Math.sin(ang) * (0.6 + Math.random() * 0.8) * s);
+        blob.scaling.y = 0.8 + Math.random() * 0.2;
+        blob.parent = root; blob.receiveShadows = true; blob.applyFog = true;
+        shadow.addShadowCaster(blob, true);
+        foliage.push({ mesh: blob, baseY: blob.position.y, phase: Math.random() * 6.28, ax: 0.05 + Math.random() * 0.04, sway: 0.6 + Math.random() * 0.7, parent: root });
       }
     }
   }
-  for (let c = 0; c < 16; c++) {
-    const cx = (Math.random() - 0.5) * 330, cz = (Math.random() - 0.5) * 330;
-    if (Math.hypot(cx, cz) < 18) continue;
-    const n = 3 + Math.floor(Math.random() * 5);
-    const conifer = Math.random() < 0.35;
-    for (let k = 0; k < n; k++) makeTree(cx + (Math.random() - 0.5) * 16, cz + (Math.random() - 0.5) * 16, 0.8 + Math.random() * 0.7, conifer);
-  }
-  for (let k = 0; k < 22; k++) { const ang = Math.random() * 6.28, d = 32 + Math.random() * 170; makeTree(Math.cos(ang) * d, Math.sin(ang) * d, 0.8 + Math.random() * 0.6, Math.random() < 0.35); }
-
   // --- distant hills ---
   for (let k = 0; k < 10; k++) {
     const ang = (k / 10) * 6.28 + 0.2, dist = 1100;
