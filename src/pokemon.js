@@ -2,28 +2,27 @@ import * as B from '@babylonjs/core';
 import { height } from './noise.js';
 
 const ROSTER = [
-  'bulbasaur', 'charmander', 'squirtle', 'pikachu', 'eevee', 'jigglypuff',
-  'meowth', 'psyduck', 'oddish', 'geodude', 'magikarp', 'pidgey',
-  'rattata', 'caterpie', 'zubat', 'diglett', 'clefairy', 'vulpix'
+  'bulbasaur','charizard','beedrill','pikachu','wigglytuff','zubat','magnemite','grimer','muk',
+  'haunter','onix','ditto','eevee','vaporeon','jolteon','flareon','moltres','dragonite'
 ];
 const META = {
-  bulbasaur: { beh: 'wander', flee: 6, size: 1.5 }, charmander: { beh: 'approach', flee: 9, size: 1.5 },
-  squirtle: { beh: 'wander', flee: 6, size: 1.5 }, pikachu: { beh: 'approach', flee: 9, size: 1.4 },
-  eevee: { beh: 'flee', flee: 9, size: 1.4 }, jigglypuff: { beh: 'wander', flee: 7, size: 1.3 },
-  meowth: { beh: 'flee', flee: 8, size: 1.3 }, psyduck: { beh: 'wander', flee: 6, size: 1.5 },
-  oddish: { beh: 'flee', flee: 7, size: 1.0 }, geodude: { beh: 'wander', flee: 5, size: 1.3 },
-  magikarp: { beh: 'wander', flee: 5, size: 1.5 }, pidgey: { beh: 'flee', flee: 8, size: 1.1 },
-  rattata: { beh: 'flee', flee: 7, size: 1.0 }, caterpie: { beh: 'wander', flee: 5, size: 1.0 },
-  zubat: { beh: 'flee', flee: 8, size: 1.0 }, diglett: { beh: 'wander', flee: 5, size: 1.0 },
-  clefairy: { beh: 'approach', flee: 9, size: 1.4 }, vulpix: { beh: 'flee', flee: 8, size: 1.4 },
+  bulbasaur:{beh:'wander',flee:6,size:1.6}, charizard:{beh:'wander',flee:9,size:3.0},
+  beedrill:{beh:'flee',flee:8,size:1.4}, pikachu:{beh:'approach',flee:9,size:1.3},
+  wigglytuff:{beh:'wander',flee:7,size:1.3}, zubat:{beh:'flee',flee:8,size:1.0},
+  magnemite:{beh:'wander',flee:6,size:1.0}, grimer:{beh:'wander',flee:5,size:1.2},
+  muk:{beh:'wander',flee:5,size:1.6}, haunter:{beh:'flee',flee:8,size:1.4},
+  onix:{beh:'wander',flee:7,size:4.0}, ditto:{beh:'wander',flee:5,size:0.8},
+  eevee:{beh:'flee',flee:9,size:1.3}, vaporeon:{beh:'wander',flee:6,size:1.3},
+  jolteon:{beh:'flee',flee:8,size:1.3}, flareon:{beh:'approach',flee:9,size:1.3},
+  moltres:{beh:'flee',flee:10,size:3.0}, dragonite:{beh:'approach',flee:10,size:2.6},
 };
 
 // per-species tuning (fill from screenshots): face offset rad, ground offset m
 const TUNE = {
-  bulbasaur:{face:0}, charmander:{face:0}, squirtle:{face:0}, pikachu:{face:0}, eevee:{face:0},
-  jigglypuff:{face:0}, meowth:{face:0}, psyduck:{face:0}, oddish:{face:0}, geodude:{face:0},
-  magikarp:{face:0}, pidgey:{face:0}, rattata:{face:0}, caterpie:{face:0}, zubat:{face:0},
-  diglett:{face:0}, clefairy:{face:0}, vulpix:{face:0},
+  bulbasaur:{face:0}, charizard:{face:0}, beedrill:{face:0}, pikachu:{face:0}, wigglytuff:{face:0},
+  zubat:{face:0}, magnemite:{face:0}, grimer:{face:0}, muk:{face:0}, haunter:{face:0},
+  onix:{face:0}, ditto:{face:0}, eevee:{face:0}, vaporeon:{face:0}, jolteon:{face:0},
+  flareon:{face:0}, moltres:{face:0}, dragonite:{face:0},
 };
 
 export async function createPokemon(scene, ctx) {
