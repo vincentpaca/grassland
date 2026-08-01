@@ -38,9 +38,8 @@ export function createGrass(scene, ctx) {
   mat.backFaceCulling = false; mat.specularColor = new B.Color3(0.04, 0.07, 0.04);
   mat.emissiveColor = new B.Color3(0.02, 0.04, 0.015);
   blade.material = mat; blade.applyFog = true; blade.isPickable = false; blade.receiveShadows = false;
-  if (ctx.shadow) ctx.shadow.addShadowCaster(blade, true);
 
-  const COUNT = 8000, RADIUS = 22;
+  const COUNT = 3500, RADIUS = 20;
   const mats = new Float32Array(COUNT * 16);
   const fx = new Float32Array(COUNT), fz = new Float32Array(COUNT);
   const yaw = new Float32Array(COUNT), scl = new Float32Array(COUNT), phase = new Float32Array(COUNT), stiff = new Float32Array(COUNT);

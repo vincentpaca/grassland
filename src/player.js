@@ -3,7 +3,7 @@ import { height } from './noise.js';
 
 // Player = Mewtwo (Pokemon-3D-api/assets #150). Animation state machine:
 // idle (hover) / walk / run (Shift) / turn-L / turn-R, with skeleton blending.
-const HOVER = 1.5;
+const HOVER = 0.0;  // grounded
 function findAG(groups, sub) { return groups.find(g => g.name.includes(sub)) || null; }
 function wrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 
@@ -14,6 +14,13 @@ export async function createTrainer(scene, ctx) {
   if (sk) { res.meshes.forEach(m => { if (!m.skeleton) m.skeleton = sk; }); sk.enableBlending(0.08); }
 
   const groups = res.animationGroups || [];
+  // remove root-motion (translation) channels so walk/run loop in place instead of teleporting back
+  for (const g of groups) {
+    const tas = g.targetedAnimations;
+    for (let i = tas.length - 1; i >= 0; i--) {
+      if (tas[i].animation && tas[i].animation.targetProperty === 'position') tas.splice(i, 1);
+    }
+  }
   const AG = {
     idle: findAG(groups, 'defaultwait01_loop') || groups[0],
     walk: findAG(groups, 'walk01_loop'),
@@ -36,7 +43,9 @@ export async function createTrainer(scene, ctx) {
   const h = Math.max(0.001, bb.max.y - bb.min.y);
   const s = 2.4 / h;
   root.scaling.set(s, s, s);
-  root.position.set(0, height(0, 0) + HOVER, 0);
+  root.getChildMeshes().forEach(m => m.computeWorldMatrix(true));
+  const footOff = root.getHierarchyBoundingVectors(true).min.y;
+  root.position.set(0, height(0, 0) - footOff, 0);
   root.getChildMeshes().forEach(m => { m.applyFog = true; m.isPickable = false; if (ctx.shadow) ctx.shadow.addShadowCaster(m, true); });
 
   const player = {
@@ -61,10 +70,9 @@ export async function createTrainer(scene, ctx) {
         current.speedRatio += (target - current.speedRatio) * Math.min(1, dt * 5);
       }
       // float + lean
-      const bob = Math.sin(this.t * 1.6) * 0.18 + Math.sin(this.t * 0.7) * 0.12;
-      root.position.y = height(root.position.x, root.position.z) + HOVER + bob;
-      root.rotation.x = -Math.min(0.28, sp * 0.05);
-      root.rotation.z = Math.sin(this.t * 1.6) * 0.04;
+      root.position.y = height(root.position.x, root.position.z) - footOff;
+      root.rotation.x = -Math.min(0.25, sp * 0.05);
+      root.rotation.z = 0;
     }
   };
   return player;

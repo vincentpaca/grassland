@@ -51,8 +51,7 @@ async function boot() {
   pp.imageProcessing.exposure = 1.12; pp.imageProcessing.contrast = 1.1;
   pp.imageProcessing.vignetteEnabled = true; pp.imageProcessing.vignetteWeight = 1.0; pp.imageProcessing.vignetteColor = new B.Color4(0.05, 0.07, 0.1, 1);
   pp.sharpenEnabled = true; pp.sharpen.edgeAmount = 0.22;
-  pp.depthOfFieldEnabled = true; pp.depthOfField.blurLevel = B.DepthOfFieldEffectBlurLevel.Low;
-  pp.depthOfField.focalLength = 180; pp.depthOfField.fStop = 6; pp.depthOfField.focusDistance = 6000;
+  pp.depthOfFieldEnabled = false;
 
   setupInput(canvas, ctx);
   const overlay = setupOverlay(ctx, world); ctx.overlay = overlay;

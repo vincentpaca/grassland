@@ -41,13 +41,13 @@ export async function createPokemon(scene, ctx) {
 
   const list = [];
   const names = Object.keys(containers);
-  const COUNT = Math.min(22, names.length * 2);
+  const COUNT = Math.min(12, names.length);
   for (let i = 0; i < COUNT; i++) {
     const name = names[i % names.length]; const meta = META[name];
     let hx, hz; do { hx = (Math.random() - 0.5) * 240; hz = (Math.random() - 0.5) * 240; } while (Math.hypot(hx, hz) < 14);
     let root = null, anim = null;
     try {
-      const inst = containers[name].instantiateModelsToScene(n => name + '_' + i + '_' + n, { doNotInstantiate: false });
+      const inst = containers[name].instantiateModelsToScene(n => name + '_' + i + '_' + n, false);
       root = inst.rootNodes[0];
       if (inst.animationGroups && inst.animationGroups.length) { inst.animationGroups.forEach(a => a.start(true)); anim = inst.animationGroups[0]; }
     } catch (e) { console.warn('instantiate failed', name, e); continue; }

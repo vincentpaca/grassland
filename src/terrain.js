@@ -77,16 +77,16 @@ export function createGrassland(scene, ctx) {
     skyBox.infiniteDistance = true; skyBox.material = sky; skyBox.isPickable = false; skyBox.applyFog = false;
   } catch (e) {}
 
-  const shadow = new B.CascadedShadowGenerator(2048, sun);
+  const shadow = new B.CascadedShadowGenerator(1024, sun);
   shadow.autoCalcDepthBounds = true; shadow.depthClamp = true; shadow.bias = 0.002; shadow.normalBias = 0.03;
-  shadow.blurPenumbra = true; shadow.penumbraRatio = 0.4; shadow.darkness = 0.55;
+  shadow.blurPenumbra = false; shadow.useExponentialShadowMap = true; shadow.darkness = 0.6;
   ctx.shadow = shadow;
 
   const gN = grassNormalTexture(scene);
   const matGrass = grassMaterial(scene, gN);
 
   // --- ground ---
-  const SIZE = 420, SUB = 300;
+  const SIZE = 420, SUB = 220;
   const ground = B.MeshBuilder.CreateGround('ground', { width: SIZE, height: SIZE, subdivisions: SUB }, scene);
   const pos = ground.getVerticesData(B.VertexBuffer.PositionKind);
   const nor = ground.getVerticesData(B.VertexBuffer.NormalKind);
@@ -148,7 +148,7 @@ export function createGrassland(scene, ctx) {
         for (let i = 0; i < cp.length / 3; i++) { cp[i * 3] += (valueNoise(i, k, 3) - 0.5) * 0.12 * s; cp[i * 3 + 2] += (valueNoise(i + 9, k, 5) - 0.5) * 0.12 * s; }
         cone.setVerticesData(B.VertexBuffer.PositionKind, cp);
         cone.position.set((Math.random() - 0.5) * 0.2 * s, (2.6 + k * 1.0) * s, (Math.random() - 0.5) * 0.2 * s); cone.parent = root; cone.material = fMat; cone.receiveShadows = true; cone.applyFog = true;
-        shadow.addShadowCaster(cone, true); foliage.push({ mesh: cone, baseY: cone.position.y, phase: Math.random() * 6.28, ax: 0.03 + Math.random() * 0.02, sway: 0.4 + Math.random() * 0.5, parent: root });
+        if (k === 0) shadow.addShadowCaster(cone, true); foliage.push({ mesh: cone, baseY: cone.position.y, phase: Math.random() * 6.28, ax: 0.03 + Math.random() * 0.02, sway: 0.4 + Math.random() * 0.5, parent: root });
       }
     } else {
       // a couple of branches
@@ -165,7 +165,7 @@ export function createGrassland(scene, ctx) {
         blob.position.set(Math.cos(ang) * (0.6 + Math.random() * 0.8) * s, (2.6 + Math.random() * 1.2) * s, Math.sin(ang) * (0.6 + Math.random() * 0.8) * s);
         blob.scaling.y = 0.8 + Math.random() * 0.2;
         blob.parent = root; blob.receiveShadows = true; blob.applyFog = true;
-        shadow.addShadowCaster(blob, true);
+        if (k === 0) shadow.addShadowCaster(blob, true);
         foliage.push({ mesh: blob, baseY: blob.position.y, phase: Math.random() * 6.28, ax: 0.05 + Math.random() * 0.04, sway: 0.6 + Math.random() * 0.7, parent: root });
       }
     }
