@@ -42,7 +42,7 @@ export async function createPokemon(scene, ctx) {
     try {
       const inst = containers[name].instantiateModelsToScene(n => name + '_' + i + '_' + n, { doNotInstantiate: false });
       root = inst.rootNodes[0];
-      if (inst.animationGroups && inst.animationGroups.length) { anim = inst.animationGroups[0]; anim.start(true); }
+      if (inst.animationGroups && inst.animationGroups.length) { inst.animationGroups.forEach(a => a.start(true)); anim = inst.animationGroups[0]; }
     } catch (e) { console.warn('instantiate failed', name, e); continue; }
     if (!root) continue;
 
@@ -82,11 +82,14 @@ export async function createPokemon(scene, ctx) {
       const nhx = p.root.position.x + vx * p.speed * dt - p.hx, nhz = p.root.position.z + vz * p.speed * dt - p.hz;
       if (Math.hypot(nhx, nhz) > 14) { p.dir += Math.PI; p.stateT = 1; }
       else { p.root.position.x += vx * p.speed * dt; p.root.position.z += vz * p.speed * dt; }
-      if (Math.hypot(vx, vz) > 0.05) { p.heading += (Math.atan2(vx, vz) - p.heading) * Math.min(1, dt * 6); p.root.rotation.y = p.heading + Math.PI; }
+      let faceAngle;
+      if (dist < 30) { faceAngle = Math.atan2(-dx, -dz) + Math.PI; } else { faceAngle = (Math.hypot(vx, vz) > 0.05) ? Math.atan2(vx, vz) + Math.PI : p.heading; }
+      p.heading += (faceAngle - p.heading) * Math.min(1, dt * 5);
+      p.root.rotation.y = p.heading;
       const gy = height(p.root.position.x, p.root.position.z);
       p.root.position.y = gy - p.footOff;
       // speed up animation a touch when moving
-      if (p.anim) { const ts = p.moving ? 1.6 : 1.0; p.anim.speedRatio += (ts - p.anim.speedRatio) * Math.min(1, dt * 4); }
+      if (p.anim) { const ts = p.moving ? 1.8 : 0.5; p.anim.speedRatio += (ts - p.anim.speedRatio) * Math.min(1, dt * 4); }
       p.shadow.position.set(p.root.position.x, gy + 0.04, p.root.position.z);
     }
   }
