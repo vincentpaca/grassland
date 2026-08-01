@@ -61,12 +61,16 @@ export async function createTrainer(scene, ctx) {
     root, sk, AG, s, speed: 0, heading: 0, prevHeading: 0, t: 0, state: 'idle',
     get position() { return root.position; },
     setHeading(h) { this.heading = h; root.rotation.y = h; },
-    update(dt, vx, vz, wind, shift, turn) {
+    update(dt, vx, vz, wind, shift) {
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
-      // state selection: A/D turn in place; W walk; Shift+W run; else idle
+      // smoothly turn toward movement direction (no instant spin), trigger turn anim on sharp changes
+      const targetH = sp > 0.1 ? Math.atan2(vx, vz) : this.heading;
+      const dH = wrap(targetH - this.heading);
+      this.heading += dH * Math.min(1, dt * 8);
+      root.rotation.y = this.heading;
       let st = 'idle';
-      if (turn !== 0 && sp < 0.3) st = turn > 0 ? 'turnR' : 'turnL';
+      if (sp > 0.3 && Math.abs(dH) > 0.12) st = dH > 0 ? 'turnR' : 'turnL';
       else if (sp > 0.3 && shift) st = 'run';
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }
