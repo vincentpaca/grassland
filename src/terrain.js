@@ -86,7 +86,7 @@ export function createGrassland(scene, ctx) {
 
   const shadow = new B.CascadedShadowGenerator(1024, sun);
   shadow.autoCalcDepthBounds = true; shadow.depthClamp = true; shadow.bias = 0.002; shadow.normalBias = 0.03;
-  shadow.blurPenumbra = true; shadow.penumbraRatio = 0.45; shadow.useExponentialShadowMap = false; shadow.darkness = 0.55;
+  shadow.blurPenumbra = false; shadow.useExponentialShadowMap = true; shadow.darkness = 0.6;
   ctx.shadow = shadow;
 
   const gN = grassNormalTexture(scene);

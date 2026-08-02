@@ -65,16 +65,16 @@ export async function createTrainer(scene, ctx) {
     root, sk, AG, footOff, FACE_OFFSET, speed: 0, heading: 0, t: 0, state: 'idle',
     get position() { return root.position; },
     setHeading(h) { this.heading = h; root.rotation.y = h + FACE_OFFSET; },
-    update(dt, vx, vz, wind, shift) {
+    update(dt, vx, vz, wind, shift, camYaw) {
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
-      const targetH = sp > 0.1 ? Math.atan2(vx, vz) : this.heading;
+      // Mewtwo always faces where the CAMERA looks (less disorienting). Turn anim on big reorients.
+      const targetH = camYaw;
       const remH = wrap(targetH - this.heading);
       this.heading += remH * Math.min(1, dt * 8);
       root.rotation.y = this.heading + FACE_OFFSET;
-      // state: pivot-turn on big reorient; else run/walk/idle
       let st = 'idle';
-      if (sp > 0.3 && Math.abs(remH) > TURN_PIVOT) st = remH > 0 ? 'turnR' : 'turnL';
+      if (Math.abs(remH) > TURN_PIVOT) st = remH > 0 ? 'turnR' : 'turnL';
       else if (sp > 0.3 && shift) st = 'run';
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }

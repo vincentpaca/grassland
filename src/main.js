@@ -2,7 +2,6 @@ import * as B from '@babylonjs/core';
 import { createGrassland } from './terrain.js';
 import { createTrainer } from './player.js';
 import { createPokemon } from './pokemon.js';
-import { createGrass } from './grass.js';
 import { height } from './noise.js';
 import '@babylonjs/loaders/glTF';
 import { DracoCompression } from '@babylonjs/core/Meshes/Compression/dracoCompression';
@@ -40,7 +39,6 @@ async function boot() {
   const player = await createTrainer(scene, ctx);
   player.position.set(0, height(0, 0), 0);
   const pokemon = await createPokemon(scene, ctx, player);
-  const grass = createGrass(scene, ctx);
 
   // post
   const pp = new B.DefaultRenderingPipeline('pp', true, scene, [camera]);
@@ -52,15 +50,12 @@ async function boot() {
   pp.imageProcessing.vignetteEnabled = true; pp.imageProcessing.vignetteWeight = 1.0; pp.imageProcessing.vignetteColor = new B.Color4(0.05, 0.07, 0.1, 1);
   pp.sharpenEnabled = true; pp.sharpen.edgeAmount = 0.22;
   pp.depthOfFieldEnabled = false;
-  // ambient occlusion for grounded contact + depth
-  let ssao = null;
-  try { ssao = new B.SSAO2RenderingPipeline('ssao2', scene, { ssaoRatio: 0.5, blurRatio: 1.0 }, [camera]); ssao.totalStrength = 1.0; ssao.radius = 0.6; ssao.samples = 14; ssao.beta = 0.04; } catch (e) {}
 
   setupInput(canvas, ctx);
   const overlay = setupOverlay(ctx, world); ctx.overlay = overlay;
 
   camera.setTarget(player.position.clone());
-  for (let i = 0; i < 3; i++) { grass.update(player.position, wind); scene.render(); await new Promise(r => setTimeout(r, 0)); }
+  for (let i = 0; i < 3; i++) { scene.render(); await new Promise(r => setTimeout(r, 0)); }
   loaderEl().classList.add('hide');
   setTimeout(() => { const l = loaderEl(); if (l) l.style.display = 'none'; }, 800);
 
@@ -91,16 +86,9 @@ async function boot() {
     move.vz += (dvz - move.vz) * Math.min(1, dt * 9);
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
-    player.update(dt, move.vx, move.vz, wind, shift);
-    // camera auto-recenter behind Mewtwo after the mouse is idle and you're moving
-    const msp = Math.hypot(move.vx, move.vz);
-    if (performance.now() - (ctx.input.lastMouse || 0) > 1500 && msp > 0.3) {
-      let dh = player.heading - cam.yaw; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
-      cam.yaw += dh * Math.min(1, dt * 1.5);
-    }
+    player.update(dt, move.vx, move.vz, wind, shift, cam.yaw);
 
     pokemon.update(dt, player);
-    grass.update(player.position, wind);
     world.update(wind, player.position);
 
     const head = new B.Vector3(player.position.x, player.position.y + 1.2, player.position.z);
