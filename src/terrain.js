@@ -46,11 +46,34 @@ function barkNormalTexture(scene) {
   });
 }
 
-function grassMaterial(scene, n1) {
+function grassAlbedoTexture(scene) {
+  const S = 256;
+  const tex = new B.DynamicTexture('grassA', { width: S, height: S }, scene, false);
+  tex.wrapU = tex.wrapV = B.Texture.WRAP_ADDRESSING;
+  const c = tex.getContext();
+  const img = c.createImageData(S, S);
+  const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    // clumpy noise field
+    let n = 0; let amp = 0.5, f = 1, fx = x, fz = y;
+    for (let o = 0; o < 4; o++) { const ix = Math.floor(fx * f), iz = Math.floor(fz * f); n += (hash(ix, iz) ) * amp; amp *= 0.5; f *= 2; }
+    n /= 0.9375;
+    // faint blade streaks
+    const streak = Math.sin((x + hash(Math.floor(y / 6), 0) * 30) * 0.9) * 0.5 + 0.5;
+    const g = 0.42 + n * 0.34 + streak * 0.08;
+    const r = 0.30 + n * 0.14;
+    const b = 0.14 + n * 0.08;
+    const o = (y * S + x) * 4;
+    img.data[o] = Math.min(255, r * 255); img.data[o + 1] = Math.min(255, g * 255); img.data[o + 2] = Math.min(255, b * 255); img.data[o + 3] = 255;
+  }
+  c.putImageData(img, 0, 0); tex.update(false); return tex;
+}
+function grassMaterial(scene, n1, albedo) {
   const m = new B.PBRMaterial('grass', scene);
-  m.albedoColor = new B.Color3(0.32, 0.52, 0.17);
-  m.roughness = 0.93; m.metallic = 0.0;
-  if (n1) { m.bumpTexture = n1; m.bumpTexture.level = 0.9; m.invertNormalMapX = true; m.invertNormalMapY = true; }
+  m.albedoColor = new B.Color3(1, 1, 1);
+  if (albedo) { m.albedoTexture = albedo; m.albedoTexture.uScale = m.albedoTexture.vScale = 70; }
+  m.roughness = 0.95; m.metallic = 0.0;
+  if (n1) { m.bumpTexture = n1; m.bumpTexture.level = 1.0; m.invertNormalMapX = true; m.invertNormalMapY = true; }
   m.useVertexColors = true; m.environmentIntensity = 0.9;
   return m;
 }
@@ -90,7 +113,8 @@ export function createGrassland(scene, ctx) {
   ctx.shadow = shadow;
 
   const gN = grassNormalTexture(scene);
-  const matGrass = grassMaterial(scene, gN);
+  const gA = grassAlbedoTexture(scene);
+  const matGrass = grassMaterial(scene, gN, gA);
 
   // --- ground ---
   const SIZE = 420, SUB = 220;
@@ -193,7 +217,7 @@ export function createGrassland(scene, ctx) {
     const mp = m.getVerticesData(B.VertexBuffer.PositionKind);
     for (let i = 0; i < mp.length / 3; i++) { const x = mp[i * 3], z = mp[i * 3 + 2]; const r = Math.hypot(x, z) / 160; mp[i * 3 + 1] = (height(x * 0.05, z * 0.05) * 4 + 26) * (1 - r * r * 0.5); }
     m.setVerticesData(B.VertexBuffer.PositionKind, mp); m.position.set(Math.cos(ang) * dist, -3, Math.sin(ang) * dist);
-    const mm = grassMaterial(scene, gN); mm.albedoColor = new B.Color3(0.4, 0.56, 0.3); m.material = mm; m.applyFog = true; m.isPickable = false; m.freezeWorldMatrix();
+    const mm = grassMaterial(scene, gN, gA); mm.albedoColor = new B.Color3(0.55, 0.6, 0.45); m.material = mm; m.applyFog = true; m.isPickable = false; m.freezeWorldMatrix();
   }
 
   // --- pollen / dust drifting in the wind ---

@@ -1,10 +1,10 @@
 import * as B from '@babylonjs/core';
 import { height } from './noise.js';
 
-// Player = Mewtwo (#150). Camera-relative movement; Mewtwo turns to face its movement.
-// FACE_OFFSET is AUTO-CALIBRATED from the walk animation's root-motion direction (no more coin-flip).
+// Player = Mewtwo (#150). Mewtwo ALWAYS faces exactly where the camera looks (no lag, no lerping away).
+// FACE_OFFSET = PI (Mewtwo's front is -Z; verified: this puts his back to the camera, facing where you look).
 const GROUND_ADJUST = 0.0;
-const TURN_PIVOT = 1.5; // radians of remaining reorient that triggers a turn-pivot anim
+const FACE_OFFSET = Math.PI;
 function findAG(groups, sub) { return groups.find(g => g.name.includes(sub)) || null; }
 function wrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 
@@ -17,7 +17,6 @@ export async function createTrainer(scene, ctx) {
   const groups = res.animationGroups || [];
   const rootBone = sk ? sk.bones.find(b => !b.getParent()) : null;
   const rootTN = rootBone && rootBone.transformNode;
-
   const AG = {
     idle: findAG(groups, 'defaultidle01') || findAG(groups, 'defaultwait01_loop') || groups[0],
     walk: findAG(groups, 'walk01_loop'),
@@ -25,26 +24,8 @@ export async function createTrainer(scene, ctx) {
     turnR: findAG(groups, 'turn_r090'),
     turnL: findAG(groups, 'turn_l090'),
   };
-
-  // Auto-calibrate facing from the walk clip's root-motion translation (its forward axis).
-  let FACE_OFFSET = 0;
-  if (rootTN && AG.walk) {
-    for (const ta of AG.walk.targetedAnimations) {
-      if (ta.target === rootTN && ta.animation.targetProperty === 'position') {
-        const ks = ta.animation.keys;
-        if (ks && ks.length >= 2) {
-          const a = ks[0].value, b = ks[ks.length - 1].value;
-          const dx = (b.x ?? 0) - (a.x ?? 0), dz = (b.z ?? 0) - (a.z ?? 0);
-          if (Math.hypot(dx, dz) > 0.001) FACE_OFFSET = -Math.atan2(dx, dz);
-        }
-        break;
-      }
-    }
-  }
-
-  // strip root-motion (position) channels so walk/run loop in place (no teleport-back)
+  // strip root-motion (position) so walk/run loop in place; strip root-bone channels from turn clips
   for (const g of groups) { const tas = g.targetedAnimations; for (let i = tas.length - 1; i >= 0; i--) if (tas[i].animation && tas[i].animation.targetProperty === 'position') tas.splice(i, 1); }
-  // turn clips bake a 90deg root rotation -> strip root bone channels so CODE controls facing
   if (rootTN) for (const key of ['turnR', 'turnL']) { const g = AG[key]; if (!g) continue; const tas = g.targetedAnimations; for (let i = tas.length - 1; i >= 0; i--) if (tas[i].target === rootTN) tas.splice(i, 1); }
 
   let current = null;
@@ -59,8 +40,10 @@ export async function createTrainer(scene, ctx) {
   bb = root.getHierarchyBoundingVectors(true);
   const footOff = bb.min.y + GROUND_ADJUST;
   root.position.set(0, height(0, 0) - footOff, 0);
+  root.rotation.y = FACE_OFFSET;
   root.getChildMeshes().forEach(m => { m.applyFog = true; m.isPickable = false; if (ctx.shadow) ctx.shadow.addShadowCaster(m, true); });
 
+  let prevCamYaw = 0;
   const player = {
     root, sk, AG, footOff, FACE_OFFSET, speed: 0, heading: 0, t: 0, state: 'idle',
     get position() { return root.position; },
@@ -68,13 +51,13 @@ export async function createTrainer(scene, ctx) {
     update(dt, vx, vz, wind, shift, camYaw) {
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
-      // Mewtwo always faces where the CAMERA looks (less disorienting). Turn anim on big reorients.
-      const targetH = camYaw;
-      const remH = wrap(targetH - this.heading);
-      this.heading += remH * Math.min(1, dt * 8);
-      root.rotation.y = this.heading + FACE_OFFSET;
+      // Mewtwo ALWAYS faces exactly where the camera looks — snap, never lag.
+      this.heading = camYaw;
+      root.rotation.y = camYaw + FACE_OFFSET;
+      // turn anim fires only while you are orbiting the camera (camYaw changing)
+      const dCam = wrap(camYaw - prevCamYaw); prevCamYaw = camYaw;
       let st = 'idle';
-      if (Math.abs(remH) > TURN_PIVOT) st = remH > 0 ? 'turnR' : 'turnL';
+      if (Math.abs(dCam) > 0.02) st = dCam > 0 ? 'turnR' : 'turnL';
       else if (sp > 0.3 && shift) st = 'run';
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }
