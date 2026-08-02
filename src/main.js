@@ -86,7 +86,7 @@ async function boot() {
     move.vz += (dvz - move.vz) * Math.min(1, dt * 9);
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
-    player.update(dt, move.vx, move.vz, wind, shift, cam.yaw);
+    player.update(dt, move.vx, move.vz, wind, shift);
 
     pokemon.update(dt, player);
     world.update(wind, player.position);

@@ -1,10 +1,14 @@
 import * as B from '@babylonjs/core';
 import { height } from './noise.js';
 
-// Player = Mewtwo (#150). Mewtwo ALWAYS faces exactly where the camera looks (no lag, no lerping away).
-// FACE_OFFSET = PI (Mewtwo's front is -Z; verified: this puts his back to the camera, facing where you look).
+// Standard 3rd-person controller (Genshin/Zelda style):
+//  - WASD moves the character relative to the CAMERA (W = where the camera looks).
+//  - The character SMOOTHLY TURNS TO FACE its movement direction (faces where it walks).
+//  - When idle, it keeps its last facing. The camera is independent (mouse orbits).
+//  - Turn anims only on a sharp pivot (>~115°), so normal steering doesn't twitch.
 const GROUND_ADJUST = 0.0;
-const FACE_OFFSET = Math.PI;
+const FACE_OFFSET = Math.PI;   // Mewtwo's front is -Z; this makes him face his movement dir (back to camera)
+const TURN_PIVOT = 2.0;        // rad of remaining reorient that triggers a turn-clip
 function findAG(groups, sub) { return groups.find(g => g.name.includes(sub)) || null; }
 function wrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 
@@ -12,7 +16,7 @@ export async function createTrainer(scene, ctx) {
   const res = await B.SceneLoader.ImportMeshAsync('', '/player/mewtwo.glb', null, scene);
   const root = res.meshes[0]; root.name = 'mewtwoRoot';
   const sk = res.skeletons && res.skeletons[0];
-  if (sk) { res.meshes.forEach(m => { if (!m.skeleton) m.skeleton = sk; }); sk.enableBlending(0.08); }
+  if (sk) { res.meshes.forEach(m => { if (!m.skeleton) m.skeleton = sk; }); sk.enableBlending(0.1); }
 
   const groups = res.animationGroups || [];
   const rootBone = sk ? sk.bones.find(b => !b.getParent()) : null;
@@ -24,7 +28,6 @@ export async function createTrainer(scene, ctx) {
     turnR: findAG(groups, 'turn_r090'),
     turnL: findAG(groups, 'turn_l090'),
   };
-  // strip root-motion (position) so walk/run loop in place; strip root-bone channels from turn clips
   for (const g of groups) { const tas = g.targetedAnimations; for (let i = tas.length - 1; i >= 0; i--) if (tas[i].animation && tas[i].animation.targetProperty === 'position') tas.splice(i, 1); }
   if (rootTN) for (const key of ['turnR', 'turnL']) { const g = AG[key]; if (!g) continue; const tas = g.targetedAnimations; for (let i = tas.length - 1; i >= 0; i--) if (tas[i].target === rootTN) tas.splice(i, 1); }
 
@@ -43,21 +46,20 @@ export async function createTrainer(scene, ctx) {
   root.rotation.y = FACE_OFFSET;
   root.getChildMeshes().forEach(m => { m.applyFog = true; m.isPickable = false; if (ctx.shadow) ctx.shadow.addShadowCaster(m, true); });
 
-  let prevCamYaw = 0;
   const player = {
     root, sk, AG, footOff, FACE_OFFSET, speed: 0, heading: 0, t: 0, state: 'idle',
     get position() { return root.position; },
     setHeading(h) { this.heading = h; root.rotation.y = h + FACE_OFFSET; },
-    update(dt, vx, vz, wind, shift, camYaw) {
+    update(dt, vx, vz, wind, shift) {
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
-      // Mewtwo ALWAYS faces exactly where the camera looks — snap, never lag.
-      this.heading = camYaw;
-      root.rotation.y = camYaw + FACE_OFFSET;
-      // turn anim fires only while you are orbiting the camera (camYaw changing)
-      const dCam = wrap(camYaw - prevCamYaw); prevCamYaw = camYaw;
+      // face the movement direction (smooth); keep last facing when idle
+      const targetH = sp > 0.1 ? Math.atan2(vx, vz) : this.heading;
+      const remH = wrap(targetH - this.heading);
+      this.heading += remH * Math.min(1, dt * 10);
+      root.rotation.y = this.heading + FACE_OFFSET;
       let st = 'idle';
-      if (Math.abs(dCam) > 0.02) st = dCam > 0 ? 'turnR' : 'turnL';
+      if (sp > 0.3 && Math.abs(remH) > TURN_PIVOT) st = remH > 0 ? 'turnR' : 'turnL';
       else if (sp > 0.3 && shift) st = 'run';
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }
