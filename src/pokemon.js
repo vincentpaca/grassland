@@ -1,9 +1,11 @@
 import * as B from '@babylonjs/core';
 import { height } from './noise.js';
 
+// Roster = animated species only (verified to ship animation clips), Gen I + multi-gen legendaries.
 const ROSTER = [
   'bulbasaur','charizard','beedrill','pikachu','wigglytuff','zubat','magnemite','grimer','muk',
-  'haunter','onix','ditto','eevee','vaporeon','jolteon','flareon','moltres','dragonite'
+  'haunter','onix','ditto','eevee','vaporeon','jolteon','flareon','moltres','dragonite',
+  'lugia','zekrom','landorus','zygarde','cosmog','cosmoem','eternatus','koraidon','miraidon'
 ];
 const META = {
   bulbasaur:{beh:'wander',flee:6,size:1.6}, charizard:{beh:'wander',flee:9,size:3.0},
@@ -15,22 +17,29 @@ const META = {
   eevee:{beh:'flee',flee:9,size:1.3}, vaporeon:{beh:'wander',flee:6,size:1.3},
   jolteon:{beh:'flee',flee:8,size:1.3}, flareon:{beh:'approach',flee:9,size:1.3},
   moltres:{beh:'flee',flee:10,size:3.0}, dragonite:{beh:'approach',flee:10,size:2.6},
+  lugia:{beh:'flee',flee:12,size:3.6}, zekrom:{beh:'wander',flee:10,size:3.0},
+  landorus:{beh:'wander',flee:10,size:2.6}, zygarde:{beh:'flee',flee:11,size:3.6},
+  cosmog:{beh:'approach',flee:9,size:0.6}, cosmoem:{beh:'wander',flee:8,size:0.5},
+  eternatus:{beh:'flee',flee:12,size:4.0}, koraidon:{beh:'approach',flee:11,size:2.8},
+  miraidon:{beh:'approach',flee:11,size:2.8},
 };
-const TUNE = {
-  bulbasaur:{face:0}, charizard:{face:0}, beedrill:{face:0}, pikachu:{face:0}, wigglytuff:{face:0},
-  zubat:{face:0}, magnemite:{face:0}, grimer:{face:0}, muk:{face:0}, haunter:{face:0},
-  onix:{face:0}, ditto:{face:0}, eevee:{face:0}, vaporeon:{face:0}, jolteon:{face:0},
-  flareon:{face:0}, moltres:{face:0}, dragonite:{face:0},
-};
+// per-species facing offset (rad). Auto-calibration isn't possible for idle-only species, so tune by eye.
+const TUNE = {};
+for (const n of ROSTER) TUNE[n] = { face: 0 };
 
-const LOAD_R = 75, UNLOAD_R = 115, PRELOAD_R = 95;
+const LOAD_R = 75, UNLOAD_R = 115, PRELOAD_R = 95, MAX_LIVE = 10;
+
+function idleClip(groups) {
+  return groups.find(g => g.name.includes('defaultwait01_loop'))
+    || groups.find(g => g.name.includes('wait'))
+    || groups.find(g => g.name.includes('idle'))
+    || groups[0] || null;
+}
 
 export async function createPokemon(scene, ctx, player) {
-  // shared blob shadow
   const shadowTex = (() => { const t = new B.DynamicTexture('pshadow', 64, scene, false); const c = t.getContext(); const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,0.5)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); t.update(false); t.hasAlpha = true; return t; })();
   const shadowMat = new B.StandardMaterial('pshadowM', scene); shadowMat.diffuseTexture = shadowTex; shadowMat.opacityTexture = shadowTex; shadowMat.useAlphaFromDiffuseTexture = true; shadowMat.transparencyMode = B.Material.MATERIAL_ALPHABLEND; shadowMat.specularColor = new B.Color3(0, 0, 0); shadowMat.emissiveColor = new B.Color3(0, 0, 0); shadowMat.disableLighting = true; shadowMat.backFaceCulling = false;
 
-  // species container cache with refcount (load on demand, unload when unused)
   const containers = new Map();
   async function getContainer(name) {
     if (containers.has(name)) { containers.get(name).refs++; return containers.get(name).container; }
@@ -41,20 +50,24 @@ export async function createPokemon(scene, ctx, player) {
   function releaseContainer(name) { const e = containers.get(name); if (!e) return; e.refs--; if (e.refs <= 0) { try { e.container.dispose(); } catch (x) {} containers.delete(name); } }
 
   const list = [];
-  const COUNT = 26;
+  const COUNT = 30;
   for (let i = 0; i < COUNT; i++) {
     const name = ROSTER[i % ROSTER.length]; const meta = META[name];
-    let hx, hz; do { hx = (Math.random() - 0.5) * 260; hz = (Math.random() - 0.5) * 260; } while (Math.hypot(hx, hz) < 16);
+    let hx, hz; do { hx = (Math.random() - 0.5) * 280; hz = (Math.random() - 0.5) * 280; } while (Math.hypot(hx, hz) < 16);
     const sh = B.MeshBuilder.CreatePlane('pks' + i, { width: meta.size * 0.9, height: meta.size * 0.5 }, scene);
     sh.rotation.x = Math.PI / 2; sh.material = shadowMat; sh.isPickable = false; sh.applyFog = false; sh.setEnabled(false);
-    list.push({ name, meta, hx, hz, dir: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.5, stateT: Math.random() * 3, moving: false, size: meta.size, shadow: sh, root: null, anim: null, footOff: 0, heading: Math.random() * 6.28, loaded: false, loading: false });
+    list.push({ name, meta, hx, hz, dir: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.5, stateT: Math.random() * 3, moving: false, size: meta.size, shadow: sh, root: null, anim: null, footOff: 0, heading: Math.random() * 6.28, loaded: false, loading: false, hasAnim: true });
   }
 
+  let liveCount = 0;
   async function loadInstance(p) {
-    if (p.loaded || p.loading) return;
+    if (p.loaded || p.loading || liveCount >= MAX_LIVE) return;
     p.loading = true;
     try {
       const c = await getContainer(p.name);
+      // animation-only filter: skip species with no clips (fall back handled by procedural bob if needed)
+      const groups = c.animationGroups || [];
+      p.hasAnim = groups.length > 0;
       const inst = c.instantiateModelsToScene(n => p.name + '_' + p.hx + '_' + n, false);
       const root = inst.rootNodes[0];
       root.getChildMeshes().forEach(m => m.computeWorldMatrix(true));
@@ -68,8 +81,10 @@ export async function createPokemon(scene, ctx, player) {
       root.position.set(p.hx, height(p.hx, p.hz) - p.footOff, p.hz);
       root.rotation.y = p.heading;
       root.getChildMeshes().forEach(m => { m.applyFog = true; m.isPickable = false; if (ctx.shadow) ctx.shadow.addShadowCaster(m, true); });
-      if (inst.animationGroups && inst.animationGroups.length) { inst.animationGroups.forEach(a => a.start(true)); p.anim = inst.animationGroups[0]; }
-      p.root = root; p.loaded = true; p.shadow.setEnabled(true);
+      // IDLE-ONLY: play the idle clip forever; they glide while roaming like the games.
+      const ag = idleClip(inst.animationGroups || []);
+      if (ag) { ag.start(true, 1.0); p.anim = ag; }
+      p.root = root; p.loaded = true; liveCount++; p.shadow.setEnabled(true);
     } catch (e) { console.warn('load pokemon', p.name, e); }
     p.loading = false;
   }
@@ -79,10 +94,9 @@ export async function createPokemon(scene, ctx, player) {
     try { p.root.dispose(); } catch (x) {}
     if (p.anim) { try { p.anim.stop(); } catch (x) {} }
     releaseContainer(p.name);
-    p.root = null; p.anim = null; p.loaded = false; p.shadow.setEnabled(false);
+    p.root = null; p.anim = null; p.loaded = false; liveCount--; p.shadow.setEnabled(false);
   }
 
-  // preload pokemon near the start so the field isn't empty at boot
   const pre = list.filter(p => Math.hypot(p.hx - player.position.x, p.hz - player.position.z) < PRELOAD_R);
   await Promise.all(pre.map(p => loadInstance(p)));
 
@@ -97,7 +111,6 @@ export async function createPokemon(scene, ctx, player) {
       if (!p.loaded && !p.loading && d < LOAD_R && loadsThisFrame < 1) { loadInstance(p); loadsThisFrame++; }
       else if (p.loaded && d > UNLOAD_R) { unloadInstance(p); }
       if (!p.loaded) continue;
-      // roam
       const dx = player.position.x - p.root.position.x, dz = player.position.z - p.root.position.z;
       const dist = Math.hypot(dx, dz);
       let vx = 0, vz = 0;
@@ -117,8 +130,9 @@ export async function createPokemon(scene, ctx, player) {
       p.root.rotation.y = p.heading;
       const gy = height(p.root.position.x, p.root.position.z);
       p.root.position.y = gy - p.footOff;
-      if (p.anim) { const ts = p.moving ? 1.8 : 0.6; p.anim.speedRatio += (ts - p.anim.speedRatio) * Math.min(1, dt * 4); }
-      else { const t = performance.now() * 0.003; p.root.rotation.z = Math.sin(t + p.hx) * 0.05; }
+      // idle-only: anim keeps playing; no walk/run switch
+      if (!p.anim) { const t = performance.now() * 0.003; p.root.rotation.z = Math.sin(t + p.hx) * 0.05; }
+      else { p.root.rotation.z = 0; }
       p.shadow.position.set(p.root.position.x, gy + 0.04, p.root.position.z);
     }
   }

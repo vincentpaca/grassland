@@ -75,11 +75,18 @@ export function createGrassland(scene, ctx) {
     sky.mieCoefficient = 0.004; sky.mieDirectionalG = 0.78; sky.sunPosition = sun.position.clone();
     const skyBox = B.MeshBuilder.CreateBox('skyBox', { size: 6000 }, scene);
     skyBox.infiniteDistance = true; skyBox.material = sky; skyBox.isPickable = false; skyBox.applyFog = false;
+    try {
+      const probe = new B.ReflectionProbe('envProbe', 256, scene);
+      probe.renderList.push(skyBox);
+      probe.cubeTexture.refreshRate = B.RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
+      scene.environmentTexture = probe.cubeTexture;
+      scene.environmentIntensity = 0.6;
+    } catch (e) {}
   } catch (e) {}
 
   const shadow = new B.CascadedShadowGenerator(1024, sun);
   shadow.autoCalcDepthBounds = true; shadow.depthClamp = true; shadow.bias = 0.002; shadow.normalBias = 0.03;
-  shadow.blurPenumbra = false; shadow.useExponentialShadowMap = true; shadow.darkness = 0.6;
+  shadow.blurPenumbra = true; shadow.penumbraRatio = 0.45; shadow.useExponentialShadowMap = false; shadow.darkness = 0.55;
   ctx.shadow = shadow;
 
   const gN = grassNormalTexture(scene);

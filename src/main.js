@@ -25,7 +25,7 @@ async function boot() {
 
   const scene = new B.Scene(engine);
   const wind = { time: 0, speed: 1.7, amp: 0.20, x: 0.8, z: 0.35 };
-  const ctx = { scene, engine, wind, settings: { sunAngle: 0.6, fog: 0.0040, wind: 0.2, quality: 1 }, input: { keys: {}, mouseDX: 0, my: 0, wheel: 0 } };
+  const ctx = { scene, engine, wind, settings: { sunAngle: 0.6, fog: 0.0040, wind: 0.2, quality: 1 }, input: { keys: {}, mouseDX: 0, my: 0, wheel: 0, lastMouse: 0 } };
 
   const camera = new B.UniversalCamera('cam', new B.Vector3(0, 5, -9), scene);
   camera.fov = 1.0; camera.minZ = 0.1; camera.maxZ = 6000;
@@ -52,6 +52,9 @@ async function boot() {
   pp.imageProcessing.vignetteEnabled = true; pp.imageProcessing.vignetteWeight = 1.0; pp.imageProcessing.vignetteColor = new B.Color4(0.05, 0.07, 0.1, 1);
   pp.sharpenEnabled = true; pp.sharpen.edgeAmount = 0.22;
   pp.depthOfFieldEnabled = false;
+  // ambient occlusion for grounded contact + depth
+  let ssao = null;
+  try { ssao = new B.SSAO2RenderingPipeline('ssao2', scene, { ssaoRatio: 0.5, blurRatio: 1.0 }, [camera]); ssao.totalStrength = 1.0; ssao.radius = 0.6; ssao.samples = 14; ssao.beta = 0.04; } catch (e) {}
 
   setupInput(canvas, ctx);
   const overlay = setupOverlay(ctx, world); ctx.overlay = overlay;
@@ -89,6 +92,12 @@ async function boot() {
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
     player.update(dt, move.vx, move.vz, wind, shift);
+    // camera auto-recenter behind Mewtwo after the mouse is idle and you're moving
+    const msp = Math.hypot(move.vx, move.vz);
+    if (performance.now() - (ctx.input.lastMouse || 0) > 1500 && msp > 0.3) {
+      let dh = player.heading - cam.yaw; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
+      cam.yaw += dh * Math.min(1, dt * 1.5);
+    }
 
     pokemon.update(dt, player);
     grass.update(player.position, wind);
@@ -114,7 +123,7 @@ async function boot() {
 
 function setupInput(canvas, ctx) {
   canvas.addEventListener('click', () => canvas.requestPointerLock && canvas.requestPointerLock());
-  document.addEventListener('mousemove', e => { if (document.pointerLockElement === canvas) { ctx.input.mouseDX += e.movementX; ctx.input.my += e.movementY; } });
+  document.addEventListener('mousemove', e => { ctx.input.lastMouse = performance.now(); if (document.pointerLockElement === canvas) { ctx.input.mouseDX += e.movementX; ctx.input.my += e.movementY; } });
   document.addEventListener('wheel', e => { ctx.input.wheel += e.deltaY; }, { passive: true });
   window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); ctx.input.keys[k] = true; if (k === 'f1' || k === '`') { e.preventDefault(); ctx.overlay && ctx.overlay.toggle(); } });
   window.addEventListener('keyup', e => { ctx.input.keys[e.key.toLowerCase()] = false; });
