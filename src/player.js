@@ -1,4 +1,4 @@
-import * as B from '@babylonjs/core';
+import { SceneLoader } from '@babylonjs/core/Loading/sceneLoader';
 import { height } from './noise.js';
 
 // Standard 3rd-person controller (Genshin/Zelda style):
@@ -13,7 +13,7 @@ function findAG(groups, sub) { return groups.find(g => g.name.includes(sub)) || 
 function wrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 
 export async function createTrainer(scene, ctx) {
-  const res = await B.SceneLoader.ImportMeshAsync('', '/player/mewtwo.glb', null, scene);
+  const res = await SceneLoader.ImportMeshAsync('', '/player/mewtwo.glb', null, scene);
   const root = res.meshes[0]; root.name = 'mewtwoRoot';
   const sk = res.skeletons && res.skeletons[0];
   if (sk) { res.meshes.forEach(m => { if (!m.skeleton) m.skeleton = sk; }); sk.enableBlending(0.1); }
@@ -44,7 +44,17 @@ export async function createTrainer(scene, ctx) {
   const footOff = bb.min.y + GROUND_ADJUST;
   root.position.set(0, height(0, 0) - footOff, 0);
   root.rotation.y = FACE_OFFSET;
-  root.getChildMeshes().forEach(m => { m.applyFog = true; m.isPickable = false; if (ctx.shadow) ctx.shadow.addShadowCaster(m, true); });
+  root.getChildMeshes().forEach(m => {
+    m.applyFog = true; m.isPickable = false; m.receiveShadows = true;
+    if (m.material && m.material.unlit) {
+      m.material.unlit = false;
+      m.material.metallic = 0;
+      m.material.roughness = 0.82;
+      m.material.specularIntensity = 0.12;
+      m.material.environmentIntensity = 0.7;
+    }
+    if (ctx.shadow) ctx.shadow.addShadowCaster(m, true);
+  });
 
   const player = {
     root, sk, AG, footOff, FACE_OFFSET, speed: 0, heading: 0, t: 0, state: 'idle',

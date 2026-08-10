@@ -1,4 +1,9 @@
-import * as B from '@babylonjs/core';
+import { Color3 } from '@babylonjs/core/Maths/math.color';
+import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
+import { Material } from '@babylonjs/core/Materials/material';
+import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
+import { SceneLoader } from '@babylonjs/core/Loading/sceneLoader';
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { height } from './noise.js';
 
 // Roster = animated species only (verified to ship animation clips), Gen I + multi-gen legendaries.
@@ -37,13 +42,13 @@ function idleClip(groups) {
 }
 
 export async function createPokemon(scene, ctx, player) {
-  const shadowTex = (() => { const t = new B.DynamicTexture('pshadow', 64, scene, false); const c = t.getContext(); const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,0.5)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); t.update(false); t.hasAlpha = true; return t; })();
-  const shadowMat = new B.StandardMaterial('pshadowM', scene); shadowMat.diffuseTexture = shadowTex; shadowMat.opacityTexture = shadowTex; shadowMat.useAlphaFromDiffuseTexture = true; shadowMat.transparencyMode = B.Material.MATERIAL_ALPHABLEND; shadowMat.specularColor = new B.Color3(0, 0, 0); shadowMat.emissiveColor = new B.Color3(0, 0, 0); shadowMat.disableLighting = true; shadowMat.backFaceCulling = false;
+  const shadowTex = (() => { const t = new DynamicTexture('pshadow', 64, scene, false); const c = t.getContext(); const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,0.5)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); t.update(false); t.hasAlpha = true; return t; })();
+  const shadowMat = new StandardMaterial('pshadowM', scene); shadowMat.diffuseTexture = shadowTex; shadowMat.opacityTexture = shadowTex; shadowMat.useAlphaFromDiffuseTexture = true; shadowMat.transparencyMode = Material.MATERIAL_ALPHABLEND; shadowMat.specularColor = new Color3(0, 0, 0); shadowMat.emissiveColor = new Color3(0, 0, 0); shadowMat.disableLighting = true; shadowMat.backFaceCulling = false;
 
   const containers = new Map();
   async function getContainer(name) {
     if (containers.has(name)) { containers.get(name).refs++; return containers.get(name).container; }
-    const c = await B.SceneLoader.LoadAssetContainerAsync('/pokemon3d/' + name + '.glb', null, scene);
+    const c = await SceneLoader.LoadAssetContainerAsync('/pokemon3d/' + name + '.glb', null, scene);
     containers.set(name, { container: c, refs: 1 });
     return c;
   }
@@ -54,7 +59,7 @@ export async function createPokemon(scene, ctx, player) {
   for (let i = 0; i < COUNT; i++) {
     const name = ROSTER[i % ROSTER.length]; const meta = META[name];
     let hx, hz; do { hx = (Math.random() - 0.5) * 280; hz = (Math.random() - 0.5) * 280; } while (Math.hypot(hx, hz) < 16);
-    const sh = B.MeshBuilder.CreatePlane('pks' + i, { width: meta.size * 0.9, height: meta.size * 0.5 }, scene);
+    const sh = MeshBuilder.CreatePlane('pks' + i, { width: meta.size * 0.9, height: meta.size * 0.5 }, scene);
     sh.rotation.x = Math.PI / 2; sh.material = shadowMat; sh.isPickable = false; sh.applyFog = false; sh.setEnabled(false);
     list.push({ name, meta, hx, hz, dir: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.5, stateT: Math.random() * 3, moving: false, size: meta.size, shadow: sh, root: null, anim: null, footOff: 0, heading: Math.random() * 6.28, loaded: false, loading: false, hasAnim: true });
   }
@@ -80,7 +85,19 @@ export async function createPokemon(scene, ctx, player) {
       p.footOff = bb.min.y;
       root.position.set(p.hx, height(p.hx, p.hz) - p.footOff, p.hz);
       root.rotation.y = p.heading;
-      root.getChildMeshes().forEach(m => { m.applyFog = true; m.isPickable = false; if (ctx.shadow) ctx.shadow.addShadowCaster(m, true); });
+      root.getChildMeshes().forEach(m => {
+        m.applyFog = true; m.isPickable = false; m.receiveShadows = true;
+        if (m.material && m.material.unlit) {
+          // convert KHR_materials_unlit to a lit cel-shaded PBR response so the
+          // characters sit in the world (sun + IBL + shadows) instead of pasted on top
+          m.material.unlit = false;
+          m.material.metallic = 0;
+          m.material.roughness = 0.82;
+          m.material.specularIntensity = 0.12;
+          m.material.environmentIntensity = 0.7;
+        }
+        if (ctx.shadow) ctx.shadow.addShadowCaster(m, true);
+      });
       // IDLE-ONLY: play the idle clip forever; they glide while roaming like the games.
       const ag = idleClip(inst.animationGroups || []);
       if (ag) { ag.start(true, 1.0); p.anim = ag; }
@@ -98,7 +115,8 @@ export async function createPokemon(scene, ctx, player) {
   }
 
   const pre = list.filter(p => Math.hypot(p.hx - player.position.x, p.hz - player.position.z) < PRELOAD_R);
-  await Promise.all(pre.map(p => loadInstance(p)));
+  if (ctx.progress) ctx.progress.n = pre.length;
+  await Promise.all(pre.map(async p => { await loadInstance(p); if (ctx.progress) ctx.progress.glb(); }));
 
   let loadsThisFrame = 0;
   function update(dt, player) {
