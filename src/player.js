@@ -9,7 +9,10 @@ import { fitToHeight } from './fit.js';
 //  - Turn anims only on a sharp pivot (>~115°), so normal steering doesn't twitch.
 const GROUND_ADJUST = 0.0;
 const MEWTWO_H = 2.0;          // Pokedex height in metres; world is 1 unit = 1 m
-const FACE_OFFSET = Math.PI;   // Mewtwo's front is -Z; this makes him face his movement dir (back to camera)
+// Measured from the skeleton (ankle->toe and tail->eyes bones): this model's front is +Z,
+// so rotation.y = camYaw already points him where the camera looks. It was PI, which spun him
+// around to face the camera and made him walk backwards.
+const FACE_OFFSET = 0;
 const TURN_PIVOT = 2.0;        // rad of remaining reorient that triggers a turn-clip
 function findAG(groups, sub) { return groups.find(g => g.name.includes(sub)) || null; }
 function wrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }

@@ -6,7 +6,7 @@ import { VertexBuffer } from '@babylonjs/core/Meshes/buffer';
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
-import { CascadedShadowGenerator } from '@babylonjs/core/Lights/Shadows/cascadedShadowGenerator';
+import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
 import { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
@@ -113,6 +113,10 @@ export function createGrassland(scene, ctx) {
   scene.ambientColor = new Color3(0.25, 0.3, 0.2);
   scene.clearColor = new Color4(0.68, 0.81, 0.95, 1);
 
+  // shadow box half-size, and the point it is centred on (kept on the player)
+  const SHADOW_R = 34;
+  const lightAnchor = new Vector3(0, 0, 0);
+
   // --- time of day: drive sun position + air color through the hours ---
   const tmpCol = new Color3(), tmpSky = new Vector3();
   const cDay = [0.62, 0.80, 0.93], cDusk = [0.95, 0.55, 0.30], cNight = [0.04, 0.06, 0.12];
@@ -127,7 +131,8 @@ export function createGrassland(scene, ctx) {
     const duskF = Math.max(0, Math.min(1, (0.22 - Math.abs(el)) * 3.2));  // warm near the horizon
     const dir = tmpSky.set(-cx * Math.cos(az), -sy, -cx * Math.sin(az)); dir.normalize();
     sun.direction.copyFrom(dir);
-    sun.position.set(dir.x * -160, dir.y * -160, dir.z * -160);
+    // keep the (tight) shadow frustum centred on wherever the player is
+    sun.position.set(lightAnchor.x - dir.x * 150, lightAnchor.y - dir.y * 150, lightAnchor.z - dir.z * 150);
     sun.intensity = 0.04 + dayF * 1.45;
     tmpCol.set(1, 0.95, 0.78); if (duskF > 0) tmpCol.set(...lerpC([1, 0.95, 0.78], [1, 0.66, 0.32], duskF));
     sun.diffuse.copyFrom(tmpCol);
@@ -172,9 +177,22 @@ export function createGrassland(scene, ctx) {
 
   let shadow = null;
   if (!off('shadow')) {
-    shadow = new CascadedShadowGenerator(1024, sun);
-    shadow.autoCalcDepthBounds = true; shadow.depthClamp = true; shadow.bias = 0.002; shadow.normalBias = 0.03;
-    shadow.blurPenumbra = false; shadow.usePercentageCloserFiltering = true; shadow.darkness = 0.6;
+    // NOT CascadedShadowGenerator: CSM declares all FOUR cascade varyings unconditionally
+    // (vPositionFromLight0_0..0_3 + vDepthMetric0_0..0_3 + vPositionFromCamera0 = 9 fragment
+    // inputs) no matter what numCascades says. On GPUs that expose only 16 fragment inputs that
+    // left ~6 for everything else, so any model with 3 textures had its pipeline rejected and
+    // rendered as a black silhouette. A plain generator needs 2 varyings instead of 9.
+    shadow = new ShadowGenerator(2048, sun);
+    shadow.bias = 0.0015; shadow.normalBias = 0.02; shadow.darkness = 0.55;
+    shadow.usePercentageCloserFiltering = true; shadow.filteringQuality = ShadowGenerator.QUALITY_HIGH;
+    // Auto extents stretched the ortho box over the whole 420-unit terrain, which spread 2048
+    // texels so thin that no shadow was visible anywhere. Use a tight box that FOLLOWS the
+    // player instead (repositioned from setDay every frame via lightAnchor).
+    sun.autoUpdateExtends = false;
+    sun.shadowOrthoScale = 0;
+    sun.orthoLeft = -SHADOW_R; sun.orthoRight = SHADOW_R;
+    sun.orthoTop = SHADOW_R; sun.orthoBottom = -SHADOW_R;
+    sun.shadowMinZ = 1; sun.shadowMaxZ = 400;
   }
   ctx.shadow = shadow;
 
@@ -207,7 +225,6 @@ export function createGrassland(scene, ctx) {
   ground.setVerticesData(VertexBuffer.NormalKind, nor);
   ground.setVerticesData(VertexBuffer.ColorKind, cols);
   ground.material = matGrass; ground.receiveShadows = true; ground.applyFog = true; ground.freezeWorldMatrix();
-  if (shadow) shadow.addShadowCaster(ground);
 
 // --- trees: one unit geometry per shape, shared materials, thin-instancing (6 draw calls) ---
   const trunkMat = new PBRMaterial('trunkM', scene);
@@ -360,6 +377,7 @@ export function createGrassland(scene, ctx) {
       grp.mesh.thinInstanceBufferUpdated('matrix');
     }
     if (pollen) { pollen.emitter.x = playerPos.x; pollen.emitter.z = playerPos.z; }
+    lightAnchor.copyFrom(playerPos);
   }
 
   return { ground, sun, sky, shadow, matGrass, height, foliage: bushCount + coneCount, pollen, update, setDay };
