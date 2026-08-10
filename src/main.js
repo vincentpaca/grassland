@@ -80,6 +80,7 @@ async function boot() {
   player.position.set(0, height(0, 0), 0);
   setProgress(0.42, 'SPAWNING MEADOW LIFE…');
   const pokemon = await createPokemon(scene, ctx, player);
+  ctx.pokemon = pokemon;
   setProgress(0.9, 'TUNING LIGHT…');
 
   // post

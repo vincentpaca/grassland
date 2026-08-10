@@ -1,5 +1,6 @@
 import { SceneLoader } from '@babylonjs/core/Loading/sceneLoader';
 import { height } from './noise.js';
+import { fitToHeight } from './fit.js';
 
 // Standard 3rd-person controller (Genshin/Zelda style):
 //  - WASD moves the character relative to the CAMERA (W = where the camera looks).
@@ -7,6 +8,7 @@ import { height } from './noise.js';
 //  - When idle, it keeps its last facing. The camera is independent (mouse orbits).
 //  - Turn anims only on a sharp pivot (>~115°), so normal steering doesn't twitch.
 const GROUND_ADJUST = 0.0;
+const MEWTWO_H = 2.0;          // Pokedex height in metres; world is 1 unit = 1 m
 const FACE_OFFSET = Math.PI;   // Mewtwo's front is -Z; this makes him face his movement dir (back to camera)
 const TURN_PIVOT = 2.0;        // rad of remaining reorient that triggers a turn-clip
 function findAG(groups, sub) { return groups.find(g => g.name.includes(sub)) || null; }
@@ -35,15 +37,16 @@ export async function createTrainer(scene, ctx) {
   function play(name) { const g = AG[name]; if (!g || g === current) return; for (const kk in AG) { if (AG[kk] && AG[kk] !== g) AG[kk].stop(); } g.start(true, 1.0); current = g; }
   play('idle');
 
-  let bb = root.getHierarchyBoundingVectors(true);
+  // glTF gives the root a rotationQuaternion, and Babylon IGNORES .rotation while one exists,
+  // so every heading write was a no-op: Mewtwo never turned, whatever the camera or input did.
+  root.rotationQuaternion = null;
+  root.rotation.set(0, FACE_OFFSET, 0);
+  // rough fit from the bind pose; recalibrated against the ANIMATED pose on the first update
+  const bb = root.getHierarchyBoundingVectors(true);
   const h = Math.max(0.001, bb.max.y - bb.min.y);
-  const s = 2.4 / h;
+  const s = MEWTWO_H / h;
   root.scaling.set(s, s, s);
-  root.getChildMeshes().forEach(m => m.computeWorldMatrix(true));
-  bb = root.getHierarchyBoundingVectors(true);
-  const footOff = bb.min.y + GROUND_ADJUST;
-  root.position.set(0, height(0, 0) - footOff, 0);
-  root.rotation.y = FACE_OFFSET;
+  root.position.set(0, height(0, 0), 0);
   root.getChildMeshes().forEach(m => {
     m.applyFog = true; m.isPickable = false; m.receiveShadows = true;
     // glTF exports often ship metallic=1, which renders black without a strong environment map
@@ -58,10 +61,16 @@ export async function createTrainer(scene, ctx) {
   });
 
   const player = {
-    root, sk, AG, footOff, FACE_OFFSET, speed: 0, heading: 0, t: 0, state: 'idle',
+    root, sk, AG, footOff: 0, calibrated: false, FACE_OFFSET, speed: 0, heading: 0, t: 0, state: 'idle',
     get position() { return root.position; },
     setHeading(h) { this.heading = h; root.rotation.y = h + FACE_OFFSET; },
     update(dt, vx, vz, wind, shift) {
+      if (!this.calibrated) {
+        // the skeleton now holds the real animated pose: fit true height and find the feet
+        const fit = fitToHeight(root, MEWTWO_H);
+        this.footOff = fit.footOff + GROUND_ADJUST;
+        this.calibrated = true;
+      }
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
       // face the movement direction (smooth); keep last facing when idle
@@ -75,7 +84,7 @@ export async function createTrainer(scene, ctx) {
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }
       if (current) { const target = st === 'run' ? 1.3 : st === 'walk' ? 1.1 : st === 'idle' ? 1.0 : 1.2; current.speedRatio += (target - current.speedRatio) * Math.min(1, dt * 5); }
-      root.position.y = height(root.position.x, root.position.z) - footOff;
+      root.position.y = height(root.position.x, root.position.z) - this.footOff;
       root.rotation.x = -Math.min(0.25, sp * 0.05);
       root.rotation.z = 0;
     }

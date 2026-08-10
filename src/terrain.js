@@ -238,7 +238,10 @@ export function createGrassland(scene, ctx) {
       pos[i * 3] = x / l * radius * kk; pos[i * 3 + 1] = y / l * radius * kk; pos[i * 3 + 2] = z / l * radius * kk;
     }
     m.setVerticesData(VertexBuffer.PositionKind, pos);
-    const nor = VertexData.ComputeNormals(m.getIndices(), pos, new Float32Array(pos.length));
+    // ComputeNormals(positions, indices, normals) fills `normals` in place and returns nothing.
+    // These args used to be swapped, so the canopies got garbage normals and rendered black.
+    const nor = new Float32Array(pos.length);
+    VertexData.ComputeNormals(pos, m.getIndices(), nor);
     m.setVerticesData(VertexBuffer.NormalKind, nor);
     return m;
   }
