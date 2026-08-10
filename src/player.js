@@ -64,7 +64,7 @@ export async function createTrainer(scene, ctx) {
     root, sk, AG, footOff: 0, calibrated: false, FACE_OFFSET, speed: 0, heading: 0, t: 0, state: 'idle',
     get position() { return root.position; },
     setHeading(h) { this.heading = h; root.rotation.y = h + FACE_OFFSET; },
-    update(dt, vx, vz, wind, shift) {
+    update(dt, vx, vz, wind, shift, camYaw) {
       if (!this.calibrated) {
         // the skeleton now holds the real animated pose: fit true height and find the feet
         const fit = fitToHeight(root, MEWTWO_H);
@@ -73,14 +73,16 @@ export async function createTrainer(scene, ctx) {
       }
       this.t += dt;
       const sp = Math.hypot(vx, vz); this.speed = sp;
-      // face the movement direction (smooth); keep last facing when idle
-      const targetH = sp > 0.1 ? Math.atan2(vx, vz) : this.heading;
-      const remH = wrap(targetH - this.heading);
-      this.heading += remH * Math.min(1, dt * 10);
+      // Standard 3rd-person: the character's yaw IS the camera yaw. He always keeps his back to
+      // the camera and faces exactly where you are looking, whether moving or standing still.
+      // No lag, no "turn to movement" - orbit the camera and he turns with it.
+      if (typeof camYaw === 'number') this.heading = camYaw;
+      else if (sp > 0.1) this.heading = Math.atan2(vx, vz);      // fallback if no camera supplied
       root.rotation.y = this.heading + FACE_OFFSET;
+      // Facing snaps to the camera, so the 90-degree pivot clips no longer apply: they would
+      // play *after* the rotation already happened and fight it. Idle / walk / run only.
       let st = 'idle';
-      if (sp > 0.3 && Math.abs(remH) > TURN_PIVOT) st = remH > 0 ? 'turnR' : 'turnL';
-      else if (sp > 0.3 && shift) st = 'run';
+      if (sp > 0.3 && shift) st = 'run';
       else if (sp > 0.3) st = 'walk';
       if (st !== this.state) { play(st); this.state = st; }
       if (current) { const target = st === 'run' ? 1.3 : st === 'walk' ? 1.1 : st === 'idle' ? 1.0 : 1.2; current.speedRatio += (target - current.speedRatio) * Math.min(1, dt * 5); }

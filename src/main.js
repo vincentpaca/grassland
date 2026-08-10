@@ -108,6 +108,7 @@ async function boot() {
 
   const cam = { yaw: Math.PI, pitch: 0.25, dist: 9, cur: camera.position.clone() };
   const move = { vx: 0, vz: 0 };
+  ctx.cam = cam;   // exposed for probes/tests
   const vHead = new Vector3(), vDes = new Vector3();
   let last = performance.now();
   const ft = new Array(120).fill(11); let fti = 0, tAcc = 0;
@@ -134,7 +135,7 @@ async function boot() {
     move.vz += (dvz - move.vz) * Math.min(1, dt * 9);
     player.position.x += move.vx * dt; player.position.z += move.vz * dt;
     player.position.y = height(player.position.x, player.position.z);
-    player.update(dt, move.vx, move.vz, wind, shift);
+    player.update(dt, move.vx, move.vz, wind, shift, cam.yaw);   // character faces where the camera looks
 
     pokemon.update(dt, player);
     world.update(wind, player.position);
