@@ -76,7 +76,7 @@ async function boot() {
   // post
   const pp = new DefaultRenderingPipeline('pp', true, scene, [camera]);
   pp.fxaaEnabled = true; pp.samples = 4;
-  pp.bloomEnabled = true; pp.bloomThreshold = 0.82; pp.bloomWeight = 0.32; pp.bloomKernel = 64; pp.bloomScale = 0.5;
+  pp.bloomEnabled = true; pp.bloomThreshold = 0.82; pp.bloomWeight = 0.32; pp.bloomKernel = 16; pp.bloomScale = 0.5;
   pp.imageProcessingEnabled = true; pp.imageProcessing.toneMappingEnabled = true;
   pp.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
   pp.imageProcessing.exposure = 1.12; pp.imageProcessing.contrast = 1.1;
@@ -180,7 +180,7 @@ function setupOverlay(ctx, world) {
       gx.strokeStyle = p1 > 16 ? '#ff6688' : '#7fb6ff'; gx.beginPath();
       for (let i = 0; i < times.length; i++) { const t = times[(idx + 1 + i) % times.length]; const x = i / times.length * 250; const y = 40 - Math.min(40, t * 1.5); if (i) gx.lineTo(x, y); else gx.moveTo(x, y); }
       gx.stroke();
-      av.textContent = `${scene.meshes.length} meshes · ${world.foliage} foliage · ${world.pollen.emitRate} pollen`;
+      av.textContent = `${scene.meshes.length} meshes · ${world.foliage} foliage · ${world.pollen ? world.pollen.emitRate : 0} pollen`;
     }
   };
 }

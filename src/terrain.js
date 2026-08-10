@@ -83,12 +83,19 @@ function grassAlbedoTexture(scene) {
   }
   c.putImageData(img, 0, 0); tex.update(false); return tex;
 }
+const OFF = new Set((new URLSearchParams(location.search).get('no') || '').split(','));
+function off(k) { return OFF.has(k); }
+// PBR's tangent-space bump adds ~vTBN varyings; devices advertising only 16 fragment inputs
+// (maxVaryingVectors) reject the resulting shader ("17 inputs > 16") and the whole frame goes black.
+// Keep the normal map on capable GPUs, drop it where the limit is too low to compile.
+function capBump(scene) { return !off('bump') && scene.getEngine().getCaps().maxVaryingVectors >= 32; }
+
 function grassMaterial(scene, n1, albedo) {
   const m = new PBRMaterial('grass', scene);
   m.albedoColor = new Color3(1, 1, 1);
   if (albedo) { m.albedoTexture = albedo; m.albedoTexture.uScale = m.albedoTexture.vScale = 70; }
   m.roughness = 0.95; m.metallic = 0.0;
-  if (n1) { m.bumpTexture = n1; m.bumpTexture.level = 1.0; m.invertNormalMapX = true; m.invertNormalMapY = true; }
+  if (n1 && capBump(scene)) { m.bumpTexture = n1; m.bumpTexture.level = 1.0; m.invertNormalMapX = true; m.invertNormalMapY = true; }
   m.useVertexColors = true; m.environmentIntensity = 0.9;
   return m;
 }
@@ -138,23 +145,30 @@ export function createGrassland(scene, ctx) {
 
   let sky = null;
   try {
-    sky = new SkyMaterial('sky', scene);
-    sky.backFaceCulling = false; sky.luminance = 1.0; sky.turbidity = 4; sky.rayleigh = 1.1;
-    sky.mieCoefficient = 0.004; sky.mieDirectionalG = 0.78; sky.sunPosition = sun.position.clone();
-    const skyBox = MeshBuilder.CreateBox('skyBox', { size: 6000 }, scene);
-    skyBox.infiniteDistance = true; skyBox.material = sky; skyBox.isPickable = false; skyBox.applyFog = false;
-    try {
-      const probe = new ReflectionProbe('envProbe', 256, scene);
-      probe.renderList.push(skyBox);
-      probe.cubeTexture.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
-      scene.environmentTexture = probe.cubeTexture;
-      scene.environmentIntensity = 0.6;
-    } catch (e) {}
+    if (!off('sky')) {
+      sky = new SkyMaterial('sky', scene);
+      sky.backFaceCulling = false; sky.luminance = 1.0; sky.turbidity = 4; sky.rayleigh = 1.1;
+      sky.mieCoefficient = 0.004; sky.mieDirectionalG = 0.78; sky.sunPosition = sun.position.clone();
+      const skyBox = MeshBuilder.CreateBox('skyBox', { size: 6000 }, scene);
+      skyBox.infiniteDistance = true; skyBox.material = sky; skyBox.isPickable = false; skyBox.applyFog = false;
+      if (!off('probe')) {
+        try {
+          const probe = new ReflectionProbe('envProbe', 256, scene);
+          probe.renderList.push(skyBox);
+          probe.cubeTexture.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
+          scene.environmentTexture = probe.cubeTexture;
+          scene.environmentIntensity = 0.6;
+        } catch (e) {}
+      }
+    }
   } catch (e) {}
 
-  const shadow = new CascadedShadowGenerator(1024, sun);
-  shadow.autoCalcDepthBounds = true; shadow.depthClamp = true; shadow.bias = 0.002; shadow.normalBias = 0.03;
-  shadow.blurPenumbra = false; shadow.usePercentageCloserFiltering = true; shadow.darkness = 0.6;
+  let shadow = null;
+  if (!off('shadow')) {
+    shadow = new CascadedShadowGenerator(1024, sun);
+    shadow.autoCalcDepthBounds = true; shadow.depthClamp = true; shadow.bias = 0.002; shadow.normalBias = 0.03;
+    shadow.blurPenumbra = false; shadow.usePercentageCloserFiltering = true; shadow.darkness = 0.6;
+  }
   ctx.shadow = shadow;
 
   const gN = grassNormalTexture(scene);
@@ -186,12 +200,12 @@ export function createGrassland(scene, ctx) {
   ground.setVerticesData(VertexBuffer.NormalKind, nor);
   ground.setVerticesData(VertexBuffer.ColorKind, cols);
   ground.material = matGrass; ground.receiveShadows = true; ground.applyFog = true; ground.freezeWorldMatrix();
-  shadow.addShadowCaster(ground);
+  if (shadow) shadow.addShadowCaster(ground);
 
 // --- trees: one unit geometry per shape, shared materials, thin-instancing (6 draw calls) ---
   const trunkMat = new PBRMaterial('trunkM', scene);
   trunkMat.albedoColor = new Color3(0.30, 0.19, 0.11); trunkMat.roughness = 0.95;
-  trunkMat.bumpTexture = barkNormalTexture(scene); trunkMat.bumpTexture.level = 0.8; trunkMat.invertNormalMapX = true; trunkMat.invertNormalMapY = true;
+  if (capBump(scene)) { trunkMat.bumpTexture = barkNormalTexture(scene); trunkMat.bumpTexture.level = 0.8; trunkMat.invertNormalMapX = true; trunkMat.invertNormalMapY = true; }
   const folMat = new PBRMaterial('folM', scene);
   folMat.albedoColor = new Color3(0.2, 0.46, 0.18); folMat.roughness = 0.93;
 
@@ -224,7 +238,7 @@ export function createGrassland(scene, ctx) {
   function instant(mesh, mat) {
     mesh.material = mat; mesh.receiveShadows = true; mesh.applyFog = true; mesh.isPickable = false;
     mesh.doNotSyncBoundingInfo = true;
-    shadow.addShadowCaster(mesh, true);
+    if (shadow) shadow.addShadowCaster(mesh, true);
   }
   instant(trunkGeo, trunkMat); instant(branchGeo, trunkMat);
   coneGeo.forEach(c => instant(c, folMat));
@@ -299,17 +313,20 @@ export function createGrassland(scene, ctx) {
   }
 
   // --- pollen / dust drifting in the wind ---
-  const pollen = new ParticleSystem('pollen', 500, scene);
-  pollen.particleTexture = ctx.sprayTex || (ctx.sprayTex = makeDot(scene));
-  pollen.emitter = new Vector3(0, 1.2, 0);
-  pollen.minEmitBox = new Vector3(-20, 0.3, -20); pollen.maxEmitBox = new Vector3(20, 3, 20);
-  pollen.color1 = new Color4(1, 0.98, 0.7, 0.5); pollen.color2 = new Color4(1, 0.95, 0.6, 0.35);
-  pollen.colorDead = new Color4(1, 1, 0.8, 0);
-  pollen.minSize = 0.03; pollen.maxSize = 0.09; pollen.minLifeTime = 4; pollen.maxLifeTime = 9;
-  pollen.emitRate = 90; pollen.blendMode = ParticleSystem.BLENDMODE_ADD;
-  pollen.direction1 = new Vector3(1.5, 0.2, 0.3); pollen.direction2 = new Vector3(3, 0.6, 1.0);
-  pollen.minEmitPower = 0.2; pollen.maxEmitPower = 0.6; pollen.gravity = new Vector3(0, 0.02, 0);
-  pollen.updateSpeed = 0.016; pollen.start();
+  let pollen = null;
+  if (!off('pollen')) {
+    pollen = new ParticleSystem('pollen', 500, scene);
+    pollen.particleTexture = ctx.sprayTex || (ctx.sprayTex = makeDot(scene));
+    pollen.emitter = new Vector3(0, 1.2, 0);
+    pollen.minEmitBox = new Vector3(-20, 0.3, -20); pollen.maxEmitBox = new Vector3(20, 3, 20);
+    pollen.color1 = new Color4(1, 0.98, 0.7, 0.5); pollen.color2 = new Color4(1, 0.95, 0.6, 0.35);
+    pollen.colorDead = new Color4(1, 1, 0.8, 0);
+    pollen.minSize = 0.03; pollen.maxSize = 0.09; pollen.minLifeTime = 4; pollen.maxLifeTime = 9;
+    pollen.emitRate = 90; pollen.blendMode = ParticleSystem.BLENDMODE_ADD;
+    pollen.direction1 = new Vector3(1.5, 0.2, 0.3); pollen.direction2 = new Vector3(3, 0.6, 1.0);
+    pollen.minEmitPower = 0.2; pollen.maxEmitPower = 0.6; pollen.gravity = new Vector3(0, 0.02, 0);
+    pollen.updateSpeed = 0.016; pollen.start();
+  }
 
   function update(wind, playerPos) {
     const t = wind.time * wind.speed;
@@ -332,7 +349,7 @@ export function createGrassland(scene, ctx) {
       }
       grp.mesh.thinInstanceBufferUpdated('matrix');
     }
-    pollen.emitter.x = playerPos.x; pollen.emitter.z = playerPos.z;
+    if (pollen) { pollen.emitter.x = playerPos.x; pollen.emitter.z = playerPos.z; }
   }
 
   return { ground, sun, sky, shadow, matGrass, height, foliage: bushCount + coneCount, pollen, update, setDay };
