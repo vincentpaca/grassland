@@ -1,3 +1,8 @@
+// NOTE: the full barrel import is REQUIRED. Deep per-module imports tree-shake away a
+// side effect that PBR lighting depends on: materials still compile (identical defines)
+// but every lit PBR surface renders black. Do not "optimize" this back into deep imports
+// without verifying actual rendered pixels (tools/shots.mjs).
+import '@babylonjs/core';
 import { Scene } from '@babylonjs/core/scene';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { Scalar } from '@babylonjs/core/Maths/math.scalar';
@@ -53,6 +58,10 @@ async function boot() {
   const scene = new Scene(engine);
   const wind = { time: 0, speed: 1.7, amp: 0.20, x: 0.8, z: 0.35 };
   const ctx = { scene, engine, wind, settings: { time: 12, fog: 0.0040, wind: 0.2, autoDay: true, quality: 1 }, input: { keys: {}, mouseDX: 0, my: 0, wheel: 0, lastMouse: 0 } };
+  {
+    const q = new URLSearchParams(location.search);
+    if (q.has('t')) { ctx.settings.time = parseFloat(q.get('t')) || 0; ctx.settings.autoDay = false; }
+  }
 
   const camera = new UniversalCamera('cam', new Vector3(0, 5, -9), scene);
   camera.fov = 1.0; camera.minZ = 0.1; camera.maxZ = 6000;
@@ -74,7 +83,9 @@ async function boot() {
   setProgress(0.9, 'TUNING LIGHT…');
 
   // post
-  const pp = new DefaultRenderingPipeline('pp', true, scene, [camera]);
+  const NOPP = (new URLSearchParams(location.search).get('no') || '').split(',').includes('pp');
+  const pp = NOPP ? null : new DefaultRenderingPipeline('pp', true, scene, [camera]);
+  if (pp) {
   pp.fxaaEnabled = true; pp.samples = 4;
   pp.bloomEnabled = true; pp.bloomThreshold = 0.82; pp.bloomWeight = 0.32; pp.bloomKernel = 16; pp.bloomScale = 0.5;
   pp.imageProcessingEnabled = true; pp.imageProcessing.toneMappingEnabled = true;
@@ -83,6 +94,7 @@ async function boot() {
   pp.imageProcessing.vignetteEnabled = true; pp.imageProcessing.vignetteWeight = 1.0; pp.imageProcessing.vignetteColor = new Color4(0.05, 0.07, 0.1, 1);
   pp.sharpenEnabled = true; pp.sharpen.edgeAmount = 0.22;
   pp.depthOfFieldEnabled = false;
+  }
 
   setupInput(canvas, ctx);
   const overlay = setupOverlay(ctx, world); ctx.overlay = overlay;
@@ -160,7 +172,7 @@ function setupOverlay(ctx, world) {
   root.innerHTML = `<div style="font-weight:700;letter-spacing:2px;margin-bottom:6px;">GRASSLAND · SETTINGS</div>
     <div id="ftstats"></div><canvas id="ftg" width="250" height="40" style="display:block;margin:6px 0;border:1px solid #234;background:#0a1322;"></canvas>
     <div id="av"></div><hr style="border-color:#234;">
-    <div>Time: <input type="range" id="s_time" min="0" max="23.5" step="0.05" value="${ctx.settings.time}" style="width:150px;vertical-align:middle;"> <label><input type="checkbox" id="s_auto" checked> auto</label></div>
+    <div>Time: <input type="range" id="s_time" min="0" max="23.5" step="0.05" value="${ctx.settings.time}" style="width:150px;vertical-align:middle;"> <label><input type="checkbox" id="s_auto" ${ctx.settings.autoDay ? "checked" : ""}> auto</label></div>
     <div>Fog: <input type="range" id="s_fog" min="0.001" max="0.02" step="0.0005" value="${ctx.settings.fog}" style="width:150px;vertical-align:middle;"></div>
     <div>Wind: <input type="range" id="s_wind" min="0" max="1" step="0.01" value="${ctx.settings.wind}" style="width:150px;vertical-align:middle;"></div>`;
   document.body.appendChild(root);

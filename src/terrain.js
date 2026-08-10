@@ -123,24 +123,29 @@ export function createGrassland(scene, ctx) {
     const az = ((h + 18) / 24) * Math.PI * 2;
     const elR = Math.asin(Math.max(-0.999, Math.min(0.999, el)));
     const cx = Math.cos(elR), sy = Math.sin(elR);
-    const dayF = Math.max(0, Math.min(1, el * 1.4 + 0.12));  // light level
+    const dayF = Math.max(0, Math.min(1, el * 1.15 + 0.32));  // light level (dusk keeps a golden floor)
     const duskF = Math.max(0, Math.min(1, (0.22 - Math.abs(el)) * 3.2));  // warm near the horizon
     const dir = tmpSky.set(-cx * Math.cos(az), -sy, -cx * Math.sin(az)); dir.normalize();
     sun.direction.copyFrom(dir);
     sun.position.set(dir.x * -160, dir.y * -160, dir.z * -160);
-    sun.intensity = 0.18 + dayF * 2.6;
-    tmpCol.set(1, 0.95, 0.78); if (duskF > 0) tmpCol.set(lerpC([1, 0.95, 0.78], [1, 0.66, 0.32], duskF));
+    sun.intensity = 0.04 + dayF * 1.45;
+    tmpCol.set(1, 0.95, 0.78); if (duskF > 0) tmpCol.set(...lerpC([1, 0.95, 0.78], [1, 0.66, 0.32], duskF));
     sun.diffuse.copyFrom(tmpCol);
-    hemi.intensity = 0.06 + dayF * 1.05;
-    tmpCol.set(lerpC([0.16, 0.24, 0.46], [0.55, 0.72, 1.0], dayF));
+    hemi.intensity = 0.13 + dayF * 0.36;   // night keeps a little moonlight so the meadow stays readable
+    tmpCol.set(...lerpC([0.16, 0.24, 0.46], [0.55, 0.72, 1.0], dayF));
     hemi.diffuse.copyFrom(tmpCol);
-    tmpCol.set(lerpC([0.05, 0.07, 0.13], [0.2, 0.28, 0.12], dayF));
+    tmpCol.set(...lerpC([0.05, 0.07, 0.13], [0.2, 0.28, 0.12], dayF));
     hemi.groundColor.copyFrom(tmpCol);
-    scene.ambientColor.set(0.05 * dayF, 0.07 * dayF, 0.06 * dayF);
+    scene.ambientColor.set(0.02 + 0.05 * dayF, 0.03 + 0.06 * dayF, 0.04 + 0.04 * dayF);
     const air = lerpC(lerpC(cNight, cDusk, duskF), cDay, dayF);
     scene.fogColor.set(air[0], air[1], air[2]);
     scene.clearColor.set(air[0], air[1], air[2], 1);
-    if (sky) { sky.luminance = 0.12 + dayF * 1.15; sky.sunPosition.copyFrom(sun.position); }
+    // SkyMaterial tonemaps with log2(2 / luminance^4): it must stay inside (0, 1.19) or the
+    // multiplier goes negative and the sky renders black with a blown-out sun blob.
+    // Lower luminance = brighter sky, so day maps LOW and night maps just under the ceiling.
+    // sky brightness follows the SUN ELEVATION, not the light curve, so sunset keeps its colour
+    const nightF = Math.max(0, Math.min(1, (-el - 0.05) * 3));
+    if (sky) { sky.luminance = 0.92 + 0.2 * nightF; sky.sunPosition.copyFrom(sun.position); }
   }
 
   let sky = null;
@@ -148,7 +153,9 @@ export function createGrassland(scene, ctx) {
     if (!off('sky')) {
       sky = new SkyMaterial('sky', scene);
       sky.backFaceCulling = false; sky.luminance = 1.0; sky.turbidity = 4; sky.rayleigh = 1.1;
-      sky.mieCoefficient = 0.004; sky.mieDirectionalG = 0.78; sky.sunPosition = sun.position.clone();
+      sky.mieCoefficient = 0.004; sky.mieDirectionalG = 0.78;
+      sky.useSunPosition = true;                 // otherwise it ignores sunPosition and uses its own inclination
+      sky.sunPosition = sun.position.clone();
       const skyBox = MeshBuilder.CreateBox('skyBox', { size: 6000 }, scene);
       skyBox.infiniteDistance = true; skyBox.material = sky; skyBox.isPickable = false; skyBox.applyFog = false;
       if (!off('probe')) {
@@ -157,7 +164,7 @@ export function createGrassland(scene, ctx) {
           probe.renderList.push(skyBox);
           probe.cubeTexture.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
           scene.environmentTexture = probe.cubeTexture;
-          scene.environmentIntensity = 0.6;
+          scene.environmentIntensity = 0.35;
         } catch (e) {}
       }
     }

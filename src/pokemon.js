@@ -87,12 +87,12 @@ export async function createPokemon(scene, ctx, player) {
       root.rotation.y = p.heading;
       root.getChildMeshes().forEach(m => {
         m.applyFog = true; m.isPickable = false; m.receiveShadows = true;
-        if (m.material && m.material.unlit) {
-          // convert KHR_materials_unlit to a lit cel-shaded PBR response so the
-          // characters sit in the world (sun + IBL + shadows) instead of pasted on top
-          m.material.unlit = false;
-          m.material.metallic = 0;
-          m.material.roughness = 0.82;
+        // Normalize EVERY imported material, not just unlit ones: glTF exports commonly ship
+        // metallic=1, which renders pure black without a strong environment map.
+        if (m.material) {
+          if (m.material.unlit) m.material.unlit = false;
+          if (typeof m.material.metallic === 'number') m.material.metallic = 0;
+          if (typeof m.material.roughness === 'number') m.material.roughness = 0.82;
           m.material.specularIntensity = 0.12;
           m.material.environmentIntensity = 0.7;
         }

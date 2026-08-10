@@ -46,10 +46,11 @@ export async function createTrainer(scene, ctx) {
   root.rotation.y = FACE_OFFSET;
   root.getChildMeshes().forEach(m => {
     m.applyFog = true; m.isPickable = false; m.receiveShadows = true;
-    if (m.material && m.material.unlit) {
-      m.material.unlit = false;
-      m.material.metallic = 0;
-      m.material.roughness = 0.82;
+    // glTF exports often ship metallic=1, which renders black without a strong environment map
+    if (m.material) {
+      if (m.material.unlit) m.material.unlit = false;
+      if (typeof m.material.metallic === 'number') m.material.metallic = 0;
+      if (typeof m.material.roughness === 'number') m.material.roughness = 0.82;
       m.material.specularIntensity = 0.12;
       m.material.environmentIntensity = 0.7;
     }
