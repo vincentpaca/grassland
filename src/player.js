@@ -69,7 +69,7 @@ export async function createTrainer(scene, ctx) {
     setHeading(h) { this.heading = h; root.rotation.y = h + FACE_OFFSET; },
     update(dt, vx, vz, wind, shift, camYaw) {
       if (!this.calibrated) {
-        // the skeleton now holds the real animated pose: fit true height and find the feet
+        // fit to the current animated pose on the first update, after the skeleton has been drawn once
         const fit = fitToHeight(root, MEWTWO_H);
         this.footOff = fit.footOff + GROUND_ADJUST;
         this.calibrated = true;

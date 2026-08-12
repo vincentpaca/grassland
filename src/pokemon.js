@@ -5,12 +5,15 @@ import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
 import { SceneLoader } from '@babylonjs/core/Loading/sceneLoader';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { height } from './noise.js';
-import { fitToHeight } from './fit.js';
+import { fitToHeight, posedBounds } from './fit.js';
 
 // Roster = animated species only (verified to ship animation clips), Gen I + multi-gen legendaries.
 const ROSTER = [
   'bulbasaur','charizard','beedrill','pikachu','wigglytuff','zubat','magnemite','grimer','muk',
   'haunter','onix','ditto','eevee','vaporeon','jolteon','flareon','moltres','dragonite',
+  'articuno','zapdos','mewtwo','mew','ho-oh','kyogre','groudon','rayquaza',
+  'dialga','palkia','giratina','reshiram','kyurem','xerneas','yveltal','solgaleo','lunala',
+  'necrozma','zacian','zamazenta',
   'lugia','zekrom','landorus','zygarde','cosmog','cosmoem','eternatus','koraidon','miraidon'
 ];
 // h = canonical Pokedex height in METRES, and the world is modelled 1 unit = 1 m, so every
@@ -28,10 +31,20 @@ const META = {
   eevee:{beh:'flee',flee:9,h:0.3},              vaporeon:{beh:'wander',flee:6,h:1.0},
   jolteon:{beh:'flee',flee:8,h:0.8},            flareon:{beh:'approach',flee:9,h:0.9},
   moltres:{beh:'flee',flee:10,h:2.0,fly:1.6},   dragonite:{beh:'approach',flee:10,h:2.2},
-  lugia:{beh:'flee',flee:12,h:5.2},             zekrom:{beh:'wander',flee:10,h:2.9},
-  landorus:{beh:'wander',flee:10,h:1.5,fly:0.8},zygarde:{beh:'flee',flee:11,h:5.0},
-  cosmog:{beh:'approach',flee:9,h:0.2,fly:0.5}, cosmoem:{beh:'wander',flee:8,h:0.1,fly:0.4},
-  eternatus:{beh:'flee',flee:12,h:20.0},        koraidon:{beh:'approach',flee:11,h:2.5},
+  articuno:{beh:'flee',flee:10,h:1.7,fly:1.5},  zapdos:{beh:'flee',flee:10,h:1.6,fly:1.5},
+  mewtwo:{beh:'flee',flee:12,h:2.0,fly:1.2},     mew:{beh:'approach',flee:9,h:0.4,fly:0.6},
+  'ho-oh':{beh:'flee',flee:12,h:3.8,fly:1.8},    kyogre:{beh:'wander',flee:11,h:4.5},
+  groudon:{beh:'wander',flee:11,h:3.5},          rayquaza:{beh:'flee',flee:12,h:7.0,fly:2.0},
+  dialga:{beh:'flee',flee:12,h:5.4},             palkia:{beh:'flee',flee:12,h:4.2,fly:0.8},
+  giratina:{beh:'flee',flee:12,h:4.5},           reshiram:{beh:'wander',flee:11,h:3.2,fly:0.9},
+  kyurem:{beh:'wander',flee:11,h:3.0},           xerneas:{beh:'wander',flee:11,h:3.0},
+  yveltal:{beh:'flee',flee:12,h:5.8,fly:1.8},     solgaleo:{beh:'wander',flee:11,h:3.4},
+  lunala:{beh:'flee',flee:12,h:4.0,fly:1.6},     necrozma:{beh:'flee',flee:11,h:2.5},
+  zacian:{beh:'approach',flee:10,h:2.8},         zamazenta:{beh:'approach',flee:10,h:2.9},
+  lugia:{beh:'flee',flee:12,h:5.2},              zekrom:{beh:'wander',flee:10,h:2.9},
+  landorus:{beh:'wander',flee:10,h:1.5,fly:0.8}, zygarde:{beh:'flee',flee:11,h:5.0},
+  cosmog:{beh:'approach',flee:9,h:0.2,fly:0.5},  cosmoem:{beh:'wander',flee:8,h:0.1,fly:0.4},
+  eternatus:{beh:'flee',flee:12,h:20.0},         koraidon:{beh:'approach',flee:11,h:2.5},
   miraidon:{beh:'approach',flee:11,h:3.5},
 };
 const DEFAULT_META = { beh: 'wander', flee: 8, h: 1.0 };
@@ -89,7 +102,7 @@ export async function createPokemon(scene, ctx, player) {
       // so every heading update was silently dropped: they slid around without ever turning.
       root.rotationQuaternion = null;
       root.rotation.set(0, p.heading, 0);
-      // rough fit now (bind pose); recalibrated against the animated pose on the first update
+      // initial scale from bind-pose height so we can position the model before animation starts
       const bb0 = root.getHierarchyBoundingVectors(true);
       const h0 = Math.max(0.001, bb0.max.y - bb0.min.y);
       root.scaling.set(p.meta.h / h0, p.meta.h / h0, p.meta.h / h0);
@@ -139,7 +152,8 @@ export async function createPokemon(scene, ctx, player) {
       else if (p.loaded && d > UNLOAD_R) { unloadInstance(p); }
       if (!p.loaded) continue;
       if (!p.calibrated) {
-        // now that a frame has been drawn the skeleton holds the real pose: fit true height + feet
+        // first frame: model has been drawn once with its idle animation, so measure the real
+        // posed height + footprint and store a stable foot offset.
         const fit = fitToHeight(p.root, p.meta.h);
         p.footOff = fit.footOff; p.width = fit.width; p.calibrated = true;
         const w = Math.max(0.25, fit.width);

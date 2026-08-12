@@ -5,7 +5,7 @@
 //     bind box is 2.4 units tall while he actually renders 1.72 and sits 0.71 ABOVE its bottom,
 //     so planting the bind box on the ground left him floating. Measuring with the skeleton
 //     applied fixes both the height and the foot offset.
-//  2. The GLB files carry no usable scale: authored heights run from 0.01x to 57x the real
+//  2. The GLB files carry no usable scale: authored heights range from 0.01x to 57x the real
 //     height (magnemite ships 17.3 units tall, wigglytuff 0.012), so relative sizes have to come
 //     from a canonical height table instead of the files.
 
@@ -23,6 +23,9 @@ export function posedBounds(root) {
  * Scale `root` so its on-screen height is `targetH` (metres; the world is 1 unit = 1 m).
  * Returns the offset of its lowest point below the root origin, so the caller can plant it
  * exactly on the terrain, plus its horizontal footprint for sizing the shadow decal.
+ *
+ * Must be called BEFORE any animation is started on the model. After animation starts the
+ * skeleton bobs and the measured foot offset becomes unstable.
  */
 export function fitToHeight(root, targetH) {
   const keep = root.position.clone();
