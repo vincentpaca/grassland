@@ -1,26 +1,3 @@
-// NOTE: the full barrel import is REQUIRED. Deep per-module imports tree-shake away a
-// side effect that PBR lighting depends on: materials still compile (identical defines)
-// but every lit PBR surface renders black. Do not "optimize" this back into deep imports
-// without verifying actual rendered pixels (tools/shots.mjs).
-import '@babylonjs/core';
-import { Scene } from '@babylonjs/core/scene';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector';
-import { Scalar } from '@babylonjs/core/Maths/math.scalar';
-import { Color4 } from '@babylonjs/core/Maths/math.color';
-import { UniversalCamera } from '@babylonjs/core/Cameras/universalCamera';
-import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
-import { ImageProcessingConfiguration } from '@babylonjs/core/Materials/imageProcessingConfiguration';
-import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline';
-import { WebGPUEngine } from '@babylonjs/core/Engines/webgpuEngine';
-import '@babylonjs/core/Engines/WebGPU/Extensions';
-import { createGrassland } from './terrain.js';
-import { createTrainer } from './player.js';
-import { createPokemon } from './pokemon.js';
-import { height } from './noise.js';
-import '@babylonjs/loaders/glTF';
-import { DracoCompression } from '@babylonjs/core/Meshes/Compression/dracoCompression';
-DracoCompression.Configuration = { decoder: { wasmUrl: '/draco/draco_wasm_wrapper_gltf.js', wasmBinaryUrl: '/draco/draco_decoder_gltf.wasm', fallbackUrl: '/draco/draco_decoder_gltf.js' } };
-
 const canvas = document.createElement('canvas');
 document.getElementById('app').appendChild(canvas);
 const loaderEl = () => document.getElementById('loader');
@@ -39,21 +16,23 @@ const failNoGPU = (detail) => {
   if (d && detail) d.textContent = String(detail);
 };
 const errMsg = (e) => (e && e.message ? e.message : String(e));
-if (!navigator.gpu) { failNoGPU('navigator.gpu is undefined — need a WebGPU-capable browser.'); }
-else { boot().catch(e => { console.error('boot failed:', e); failNoGPU(errMsg(e)); }); }
+
+setProgress(0.01, 'LOADING ENGINE…');
+boot().catch(e => { console.error('boot failed:', e); failNoGPU(errMsg(e)); });
 
 async function boot() {
-  let engine;
-  try {
-    const ad = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
-    if (!ad) { failNoGPU('No WebGPU adapter available on this device.'); return; }
-    engine = await WebGPUEngine.CreateAsync(canvas, { antialias: true, adaptToDeviceRatio: true });
-  } catch (e) {
-    console.error('WebGPU init failed:', e);
-    failNoGPU(errMsg(e));
-    return;
-  }
-  setProgress(0.06, 'INITIALIZING GPU…');
+  // Dynamic import: lets Vite split the 7MB Babylon barrel into a separate chunk.
+  // This is critical for iOS Safari, which kills scripts that take >10s to parse.
+  const babel = await import('./babylon.js');
+  const { engine, webgpu } = await babel.createEngine(canvas);
+  setProgress(0.06, webgpu ? 'INITIALIZING GPU…' : 'INITIALIZING…');
+
+  const { Scene, Vector3, Scalar, Color4, UniversalCamera, DynamicTexture, ImageProcessingConfiguration, DefaultRenderingPipeline, DracoCompression } = babel;
+  const { createGrassland } = await import('./terrain.js');
+  const { createTrainer } = await import('./player.js');
+  const { createPokemon } = await import('./pokemon.js');
+  const { height } = await import('./noise.js');
+  DracoCompression.Configuration = { decoder: { wasmUrl: '/draco/draco_wasm_wrapper_gltf.js', wasmBinaryUrl: '/draco/draco_decoder_gltf.wasm', fallbackUrl: '/draco/draco_decoder_gltf.js' } };
 
   const scene = new Scene(engine);
   const wind = { time: 0, speed: 1.7, amp: 0.20, x: 0.8, z: 0.35 };
@@ -165,6 +144,72 @@ function setupInput(canvas, ctx) {
   document.addEventListener('wheel', e => { ctx.input.wheel += e.deltaY; }, { passive: true });
   window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); ctx.input.keys[k] = true; if (k === 'f1' || k === '`') { e.preventDefault(); ctx.overlay && ctx.overlay.toggle(); } });
   window.addEventListener('keyup', e => { ctx.input.keys[e.key.toLowerCase()] = false; });
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) setupTouch(ctx);
+}
+
+function setupTouch(ctx) {
+  const joy = document.getElementById('joy');
+  const knob = joy ? joy.querySelector('i') : null;
+  const JR = 46;
+  let joyId = null, joyCx = 0, joyCy = 0;
+  let camId = null, camLastX = 0, camLastY = 0, pinchDist = 0;
+
+  const setMove = (dx, dz) => {
+    ctx.input.keys['w'] = dz > 0.15;
+    ctx.input.keys['s'] = dz < -0.15;
+    ctx.input.keys['d'] = dx > 0.15;
+    ctx.input.keys['a'] = dx < -0.15;
+    ctx.input.keys['shift'] = Math.hypot(dx, dz) > 0.9;
+  };
+  const clearMove = () => { for (const k of ['w','a','s','d','shift']) ctx.input.keys[k] = false; };
+
+  canvas_touch('touchstart', 'touchmove', 'touchend', 'touchcancel');
+
+  function canvas_touch() {
+    const handlers = {};
+    handlers.touchstart = (e) => {
+      for (const t of e.changedTouches) {
+        if (joy && t.clientX < window.innerWidth * 0.5 && t.clientY > window.innerHeight * 0.4 && joyId === null) {
+          joyId = t.identifier;
+          const r = joy.getBoundingClientRect();
+          joyCx = r.left + r.width / 2; joyCy = r.top + r.height / 2;
+          joy.classList.add('active');
+          e.preventDefault();
+        } else if (camId === null) {
+          camId = t.identifier; camLastX = t.clientX; camLastY = t.clientY;
+        }
+      }
+      if (e.touches.length >= 2) { const a = e.touches[0], b = e.touches[1]; pinchDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+    };
+    handlers.touchmove = (e) => {
+      e.preventDefault();
+      let pinchA = null, pinchB = null;
+      for (const t of e.touches) {
+        if (t.identifier === joyId) {
+          let dx = t.clientX - joyCx, dz = t.clientY - joyCy;
+          const m = Math.hypot(dx, dz);
+          if (m > JR) { dx = dx / m * JR; dz = dz / m * JR; }
+          if (knob) { knob.style.transform = `translate(${dx}px,${dz}px)`; }
+          setMove(dx / JR, -dz / JR);
+        } else if (t.identifier === camId) {
+          ctx.input.mouseDX += t.clientX - camLastX;
+          ctx.input.my += t.clientY - camLastY;
+          camLastX = t.clientX; camLastY = t.clientY;
+        }
+        if (e.touches.length === 2 && pinchA === null) pinchA = t; else if (e.touches.length === 2) pinchB = t;
+      }
+      if (pinchA && pinchB) { const d = Math.hypot(pinchA.clientX - pinchB.clientX, pinchA.clientY - pinchB.clientY); ctx.input.wheel += (pinchDist - d) * 3; pinchDist = d; }
+    };
+    const end = (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyId) { joyId = null; if (knob) knob.style.transform = ''; if (joy) joy.classList.remove('active'); clearMove(); }
+        if (t.identifier === camId) camId = null;
+      }
+      if (e.touches.length < 2) pinchDist = 0;
+    };
+    handlers.touchend = end; handlers.touchcancel = end;
+    for (const ev in handlers) document.addEventListener(ev, handlers[ev], { passive: false });
+  }
 }
 
 function setupOverlay(ctx, world) {
