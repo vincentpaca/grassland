@@ -13,10 +13,12 @@ Grassland heightfield, grass detail normals, tree meshes, trainer mesh, sky
 (Babylon SkyMaterial), fog/lighting — all generated at runtime, no third-party
 textures/HDRI/PBR scans.
 
-## Expansion sources for 3D Pokémon models
-The current demo already vendored GLB Pokémon models in `public/pokemon3d/` (27
-species from Gen I + legendaries). Below are sources to add more generations /
-forms. Each row was spot-checked for current status and activity.
+## 3D Pokémon models
+The roaming roster is generated in `src/roster.js` (253 forms: 47 vendored locally
+in `public/pokemon3d/`, the rest loaded at runtime from the Pokemon-3D-api CDN).
+Regenerate with `node tools/gen-roster.mjs`, which fetches the catalog, checks each
+form for animation clips, and emits the roster with heights/behavior. Sources below
+were spot-checked for current status and activity.
 
 ### Active / usable
 

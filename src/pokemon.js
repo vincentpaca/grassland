@@ -7,46 +7,11 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { height } from './noise.js';
 import { fitToHeight, posedBounds } from './fit.js';
 
-// Roster = animated species only (verified to ship animation clips), Gen I + multi-gen legendaries.
-const ROSTER = [
-  'bulbasaur','charizard','beedrill','pikachu','wigglytuff','zubat','magnemite','grimer','muk',
-  'haunter','onix','ditto','eevee','vaporeon','jolteon','flareon','moltres','dragonite',
-  'articuno','zapdos','mewtwo','mew','ho-oh','kyogre','groudon','rayquaza',
-  'dialga','palkia','giratina','reshiram','kyurem','xerneas','yveltal','solgaleo','lunala',
-  'necrozma','zacian','zamazenta',
-  'lugia','zekrom','landorus','zygarde','cosmog','cosmoem','eternatus','koraidon','miraidon'
-];
-// h = canonical Pokedex height in METRES, and the world is modelled 1 unit = 1 m, so every
-// species ends up correctly sized relative to the others. The GLB files themselves cannot be
-// used for this: their authored heights range from 0.01x to 57x the real height (magnemite
-// ships 17.3 units tall, wigglytuff 0.012), so each model is normalized to `h` at runtime.
-// fly = how far above the ground the species hovers, in metres (0 = stands on the ground).
-const META = {
-  bulbasaur:{beh:'wander',flee:6,h:0.7},        charizard:{beh:'wander',flee:9,h:1.7},
-  beedrill:{beh:'flee',flee:8,h:1.0,fly:0.7},   pikachu:{beh:'approach',flee:9,h:0.4},
-  wigglytuff:{beh:'wander',flee:7,h:1.0},       zubat:{beh:'flee',flee:8,h:0.8,fly:1.1},
-  magnemite:{beh:'wander',flee:6,h:0.3,fly:0.7},grimer:{beh:'wander',flee:5,h:0.9},
-  muk:{beh:'wander',flee:5,h:1.2},              haunter:{beh:'flee',flee:8,h:1.6,fly:0.6},
-  onix:{beh:'wander',flee:7,h:8.8},             ditto:{beh:'wander',flee:5,h:0.3},
-  eevee:{beh:'flee',flee:9,h:0.3},              vaporeon:{beh:'wander',flee:6,h:1.0},
-  jolteon:{beh:'flee',flee:8,h:0.8},            flareon:{beh:'approach',flee:9,h:0.9},
-  moltres:{beh:'flee',flee:10,h:2.0,fly:1.6},   dragonite:{beh:'approach',flee:10,h:2.2},
-  articuno:{beh:'flee',flee:10,h:1.7,fly:1.5},  zapdos:{beh:'flee',flee:10,h:1.6,fly:1.5},
-  mewtwo:{beh:'flee',flee:12,h:2.0,fly:1.2},     mew:{beh:'approach',flee:9,h:0.4,fly:0.6},
-  'ho-oh':{beh:'flee',flee:12,h:3.8,fly:1.8},    kyogre:{beh:'wander',flee:11,h:4.5},
-  groudon:{beh:'wander',flee:11,h:3.5},          rayquaza:{beh:'flee',flee:12,h:7.0,fly:2.0},
-  dialga:{beh:'flee',flee:12,h:5.4},             palkia:{beh:'flee',flee:12,h:4.2,fly:0.8},
-  giratina:{beh:'flee',flee:12,h:4.5},           reshiram:{beh:'wander',flee:11,h:3.2,fly:0.9},
-  kyurem:{beh:'wander',flee:11,h:3.0},           xerneas:{beh:'wander',flee:11,h:3.0},
-  yveltal:{beh:'flee',flee:12,h:5.8,fly:1.8},     solgaleo:{beh:'wander',flee:11,h:3.4},
-  lunala:{beh:'flee',flee:12,h:4.0,fly:1.6},     necrozma:{beh:'flee',flee:11,h:2.5},
-  zacian:{beh:'approach',flee:10,h:2.8},         zamazenta:{beh:'approach',flee:10,h:2.9},
-  lugia:{beh:'flee',flee:12,h:5.2},              zekrom:{beh:'wander',flee:10,h:2.9},
-  landorus:{beh:'wander',flee:10,h:1.5,fly:0.8}, zygarde:{beh:'flee',flee:11,h:5.0},
-  cosmog:{beh:'approach',flee:9,h:0.2,fly:0.5},  cosmoem:{beh:'wander',flee:8,h:0.1,fly:0.4},
-  eternatus:{beh:'flee',flee:12,h:20.0},         koraidon:{beh:'approach',flee:11,h:2.5},
-  miraidon:{beh:'approach',flee:11,h:3.5},
-};
+// Roster + per-species metadata (height, behavior, model URL) are generated in src/roster.js.
+// h = canonical Pokedex height in METRES (world is 1 unit = 1 m); each model is normalized to `h`
+// at runtime because authored GLB heights range from 0.01x to 57x real height.
+// fly = hover height above ground in metres (0 = stands on the ground).
+import { ROSTER, META } from './roster.js';
 const DEFAULT_META = { beh: 'wander', flee: 8, h: 1.0 };
 // per-species facing offset (rad). Auto-calibration isn't possible for idle-only species, so tune by eye.
 const TUNE = {};
@@ -70,7 +35,8 @@ export async function createPokemon(scene, ctx, player) {
   const containers = new Map();
   async function getContainer(name) {
     if (containers.has(name)) { containers.get(name).refs++; return containers.get(name).container; }
-    const c = await SceneLoader.LoadAssetContainerAsync('/pokemon3d/' + name + '.glb', null, scene);
+    const url = (META[name] && META[name].url) || '/pokemon3d/' + name + '.glb';
+    const c = await SceneLoader.LoadAssetContainerAsync(url, null, scene);
     containers.set(name, { container: c, refs: 1 });
     return c;
   }
@@ -79,7 +45,7 @@ export async function createPokemon(scene, ctx, player) {
   const list = [];
   const COUNT = 30;
   for (let i = 0; i < COUNT; i++) {
-    const name = ROSTER[i % ROSTER.length]; const meta = META[name] || DEFAULT_META;
+    const name = ROSTER[Math.floor(Math.random() * ROSTER.length)]; const meta = META[name] || DEFAULT_META;
     let hx, hz; do { hx = (Math.random() - 0.5) * 280; hz = (Math.random() - 0.5) * 280; } while (Math.hypot(hx, hz) < 16);
     // unit plane; scaled to the measured footprint once the model has been calibrated
     const sh = MeshBuilder.CreatePlane('pks' + i, { width: 1, height: 1 }, scene);
@@ -91,6 +57,7 @@ export async function createPokemon(scene, ctx, player) {
   async function loadInstance(p) {
     if (p.loaded || p.loading || liveCount >= MAX_LIVE) return;
     p.loading = true;
+    liveCount++;   // reserve the slot up front so parallel loads can't overshoot MAX_LIVE
     try {
       const c = await getContainer(p.name);
       // animation-only filter: skip species with no clips (fall back handled by procedural bob if needed)
@@ -123,8 +90,8 @@ export async function createPokemon(scene, ctx, player) {
       // IDLE-ONLY: play the idle clip forever; they glide while roaming like the games.
       const ag = idleClip(inst.animationGroups || []);
       if (ag) { ag.start(true, 1.0); p.anim = ag; }
-      p.root = root; p.loaded = true; p.calibrated = false; liveCount++; p.shadow.setEnabled(true);
-    } catch (e) { console.warn('load pokemon', p.name, e); }
+      p.root = root; p.loaded = true; p.calibrated = false; p.shadow.setEnabled(true);
+    } catch (e) { console.warn('load pokemon', p.name, e); liveCount--; }
     p.loading = false;
   }
   function unloadInstance(p) {
@@ -190,5 +157,24 @@ export async function createPokemon(scene, ctx, player) {
       p.shadow.position.set(p.root.position.x, gy + 0.04, p.root.position.z);
     }
   }
-  return { list, update };
+  // Spawn a specific species on demand (lookup feature). Creates a new instance at (x, z),
+  // evicts the farthest loaded instance if at MAX_LIVE, and loads it immediately.
+  function spawn(name, x, z) {
+    if (!META[name]) return null;
+    const meta = META[name];
+    const sh = MeshBuilder.CreatePlane('pks' + list.length, { width: 1, height: 1 }, scene);
+    sh.rotation.x = Math.PI / 2; sh.material = shadowMat; sh.isPickable = false; sh.applyFog = false; sh.setEnabled(false);
+    const p = { name, meta, hx: x, hz: z, dir: Math.random() * 6.28, speed: 0.25 + Math.random() * 0.35, stateT: 0, moving: false, size: meta.h, shadow: sh, root: null, anim: null, footOff: 0, width: meta.h, heading: Math.random() * 6.28, loaded: false, loading: false, hasAnim: true, calibrated: false };
+    list.push(p);
+    if (liveCount >= MAX_LIVE) {
+      const loaded = list.filter(q => q.loaded && q !== p);
+      if (loaded.length) {
+        loaded.sort((a, b) => Math.hypot(b.root.position.x - x, b.root.position.z - z) - Math.hypot(a.root.position.x - x, a.root.position.z - z));
+        unloadInstance(loaded[0]);
+      }
+    }
+    loadInstance(p);
+    return p;
+  }
+  return { list, update, spawn, roster: ROSTER };
 }

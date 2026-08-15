@@ -78,6 +78,8 @@ async function boot() {
 
   setupInput(canvas, ctx);
   const overlay = setupOverlay(ctx, world); ctx.overlay = overlay;
+  const minimap = setupMinimap(ctx, player);
+  setupLookup(ctx, player);
 
   camera.setTarget(player.position.clone());
   for (let i = 0; i < 3; i++) { scene.render(); await new Promise(r => setTimeout(r, 0)); }
@@ -88,7 +90,7 @@ async function boot() {
   const cam = { yaw: Math.PI, pitch: 0.25, dist: 9, cur: camera.position.clone() };
   const move = { vx: 0, vz: 0 };
   ctx.cam = cam;   // exposed for probes/tests
-  const vHead = new Vector3(), vDes = new Vector3();
+  const vHead = new Vector3(), vDes = new Vector3(), vTarget = new Vector3();
   let last = performance.now();
   const ft = new Array(120).fill(11); let fti = 0, tAcc = 0;
 
@@ -98,7 +100,7 @@ async function boot() {
 
     // Mouse orbits the camera freely (persists). WASD moves camera-relative; Mewtwo turns to face its movement.
     cam.yaw += ctx.input.mouseDX * 0.005; ctx.input.mouseDX *= 0.7;
-    cam.pitch = Scalar.Clamp(cam.pitch - ctx.input.my * 0.003, 0.08, 1.1); ctx.input.my *= 0.7;
+    cam.pitch = Scalar.Clamp(cam.pitch + ctx.input.my * 0.003, 0.08, 1.1); ctx.input.my *= 0.7;
     cam.dist = Scalar.Clamp(cam.dist - ctx.input.wheel * 0.5, 4, 18); ctx.input.wheel *= 0.8;
 
     const k = ctx.input.keys;
@@ -117,6 +119,7 @@ async function boot() {
     player.update(dt, move.vx, move.vz, wind, shift, cam.yaw);   // character faces where the camera looks
 
     pokemon.update(dt, player);
+    minimap.update(now);
     world.update(wind, player.position);
     if (ctx.settings.autoDay) ctx.settings.time = (ctx.settings.time + dt * 0.02) % 24;   // 1 in-game hour ≈ 50 s
     world.setDay(ctx.settings.time);
@@ -126,7 +129,12 @@ async function boot() {
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     vDes.set(vHead.x - Math.sin(cam.yaw) * cp * cam.dist + Math.cos(cam.yaw) * 0.8, vHead.y + sp * cam.dist + 1.0, vHead.z - Math.cos(cam.yaw) * cp * cam.dist - Math.sin(cam.yaw) * 0.8);
     Vector3.LerpToRef(cam.cur, vDes, Math.min(1, dt * 7), cam.cur);
-    camera.position.copyFrom(cam.cur); camera.setTarget(vHead);
+    camera.position.copyFrom(cam.cur);
+    // Look up at the sky when the camera is low (eye level): raise the target so the
+    // camera tilts up instead of always staring at the trainer.
+    const lookUp = Math.max(0, 0.5 - cam.pitch) * 20;
+    vTarget.set(vHead.x, vHead.y + lookUp, vHead.z);
+    camera.setTarget(vTarget);
 
     scene.render();
     fti = (fti + 1) % ft.length; ft[fti] = dt * 1000; tAcc += dt;
@@ -243,3 +251,146 @@ function setupOverlay(ctx, world) {
     }
   };
 }
+
+function setupMinimap(ctx, player) {
+  const isMobile = window.innerWidth < 768;
+  const size = isMobile ? 88 : 120;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  // Explicit width/height override the global `canvas{width:100%;height:100%}` rule.
+  canvas.style.cssText = `position:fixed;right:${isMobile ? 8 : 12}px;top:${isMobile ? 8 : 12}px;z-index:25;width:${size}px;height:${size}px;opacity:${isMobile ? 0.45 : 0.55};border-radius:50%;border:1px solid rgba(42,58,90,.8);pointer-events:none;`;
+  document.body.appendChild(canvas);
+  const g = canvas.getContext('2d');
+  const RANGE = 140;                 // world half-extent (Pokémon spawn within ±140)
+  const scale = size / (RANGE * 2);
+  const cx = size / 2, cy = size / 2, r = size / 2;
+
+  function draw() {
+    g.clearRect(0, 0, size, size);
+    // circular backdrop
+    g.beginPath();
+    g.arc(cx, cy, r - 1, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(8,12,22,0.55)';
+    g.fill();
+    // clip everything inside the circle
+    g.save();
+    g.beginPath();
+    g.arc(cx, cy, r - 2, 0, Math.PI * 2);
+    g.clip();
+
+    // Pokémon: bright when loaded, dim when culled
+    const list = ctx.pokemon ? ctx.pokemon.list : [];
+    for (const p of list) {
+      const x = p.loaded && p.root ? p.root.position.x : p.hx;
+      const z = p.loaded && p.root ? p.root.position.z : p.hz;
+      const px = (x + RANGE) * scale, py = (z + RANGE) * scale;
+      g.fillStyle = p.loaded ? 'rgba(255,196,64,0.95)' : 'rgba(255,196,64,0.35)';
+      g.beginPath();
+      g.arc(px, py, p.loaded ? 3 : 2, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // Player: direction line + dot, clamped to the circle edge
+    let dx = (player.position.x + RANGE) * scale - cx;
+    let dz = (player.position.z + RANGE) * scale - cy;
+    const d = Math.hypot(dx, dz), maxR = r - 5;
+    if (d > maxR) { dx = dx / d * maxR; dz = dz / d * maxR; }
+    const px = cx + dx, py = cy + dz;
+    const yaw = ctx.cam ? ctx.cam.yaw : 0;
+    g.strokeStyle = 'rgba(127,212,255,0.9)';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(px, py);
+    g.lineTo(px + Math.sin(yaw) * 8, py + Math.cos(yaw) * 8);
+    g.stroke();
+    g.fillStyle = '#7fd4ff';
+    g.beginPath();
+    g.arc(px, py, 4, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    // circular border on top
+    g.beginPath();
+    g.arc(cx, cy, r - 1, 0, Math.PI * 2);
+    g.strokeStyle = 'rgba(127,182,255,0.4)';
+    g.lineWidth = 1;
+    g.stroke();
+  }
+
+  let last = 0;
+  return {
+    update(now) {
+      if (now - last < 100) return;   // ~10 fps is plenty for a minimap
+      last = now;
+      draw();
+    }
+  };
+}
+
+function setupLookup(ctx, player) {
+  const isMobile = window.innerWidth < 768;
+  const top = isMobile ? 112 : 160;   // below the minimap
+  const root = document.createElement('div');
+  root.style.cssText = `position:fixed;right:${isMobile ? 8 : 12}px;top:${top}px;z-index:40;display:none;width:${isMobile ? 'calc(100vw - 16px)' : '240px'};font-size:12px;color:#dfe9ff;`;
+  root.innerHTML = `<input id="lookup" type="text" placeholder="Look up a Pokémon…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:6px 8px;background:rgba(8,12,22,.85);border:1px solid #2a3a5a;border-radius:6px;color:#dfe9ff;font-size:12px;outline:none;">
+    <div id="lookup-results" style="margin-top:4px;max-height:260px;overflow:auto;background:rgba(8,12,22,.85);border:1px solid #2a3a5a;border-radius:6px;"></div>`;
+  document.body.appendChild(root);
+  const input = root.querySelector('#lookup');
+  const results = root.querySelector('#lookup-results');
+  const displayName = k => k.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+  function render(q) {
+    const roster = ctx.pokemon.roster || [];
+    const matches = q ? roster.filter(k => k.includes(q) || displayName(k).toLowerCase().includes(q)) : [];
+    results.innerHTML = '';
+    for (const k of matches.slice(0, 12)) {
+      const d = document.createElement('div');
+      d.textContent = displayName(k);
+      d.style.cssText = 'padding:4px 8px;cursor:pointer;border-radius:4px;';
+      d.onmouseenter = () => { d.style.background = '#1c2a44'; };
+      d.onmouseleave = () => { d.style.background = 'transparent'; };
+      d.onclick = () => pick(k);
+      results.appendChild(d);
+    }
+  }
+
+  function pick(k) {
+    const yaw = ctx.cam ? ctx.cam.yaw : 0;
+    const fx = player.position.x + Math.sin(yaw) * 8;
+    const fz = player.position.z + Math.cos(yaw) * 8;
+    ctx.pokemon.spawn(k, fx, fz);
+    close();
+  }
+
+  function open() { root.style.display = 'block'; input.value = ''; render(''); input.focus(); }
+  function close() { root.style.display = 'none'; input.blur(); }
+
+  input.oninput = () => render(input.value.trim().toLowerCase());
+  input.onkeydown = e => {
+    if (e.key === 'Enter') {
+      const q = input.value.trim().toLowerCase();
+      const roster = ctx.pokemon.roster || [];
+      const m = roster.find(k => k.includes(q) || displayName(k).toLowerCase().includes(q));
+      if (m) pick(m);
+    } else if (e.key === 'Escape') { close(); }
+    e.stopPropagation();
+  };
+
+  // Mobile trigger button (no keyboard); also a discoverable click target on desktop.
+  const btn = document.createElement('button');
+  btn.textContent = 'Search';
+  btn.style.cssText = `position:fixed;right:${isMobile ? 8 : 12}px;top:${top}px;z-index:26;padding:4px 10px;font-size:11px;color:#dfe9ff;background:rgba(8,12,22,.6);border:1px solid #2a3a5a;border-radius:6px;cursor:pointer;`;
+  btn.onclick = () => { if (root.style.display === 'block') close(); else { if (document.exitPointerLock) document.exitPointerLock(); open(); } };
+  document.body.appendChild(btn);
+
+  window.addEventListener('keydown', e => {
+    if (e.key === '/') {
+      e.preventDefault();
+      if (root.style.display === 'block') close();
+      else { if (document.exitPointerLock) document.exitPointerLock(); open(); }
+    }
+  });
+
+  return { open, close };
+}
+
