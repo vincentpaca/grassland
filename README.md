@@ -4,6 +4,13 @@ Rio and I vibecoded this sandbox because he loves exploration games especially w
 
 We used GLM 5.2, Kimi 2.7 and Deepseek V4 Pro for this build.
 
+
+## Screenshots
+
+![Grassland - Initial View](screenshots/grassland-1.webp)
+![Grassland - Exploration](screenshots/grassland-2.webp)
+![Grassland - Spawn Menu](screenshots/grassland-3.webp)
+![Grassland - Open World](screenshots/grassland-4.webp)
 ## Run
 ```bash
 npm install
